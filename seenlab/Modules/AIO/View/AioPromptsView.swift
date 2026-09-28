@@ -36,6 +36,7 @@ struct AioPromptsView: View {
             SLCard(padding: 0) {
                 RowList(items: prompts) { p in
                     Button { open(p) } label: { AioPromptCell(prompt: p, engines: data.enabledEngines) }
+                        .accessibilityIdentifier("prompt-\(p.id)")
                         .buttonStyle(.plain)
                 }
             }

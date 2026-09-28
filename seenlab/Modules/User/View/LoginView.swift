@@ -16,6 +16,15 @@ struct LoginView: View {
     @FocusState private var focus: Field?
     enum Field { case email, password }
 
+    /// Recording the app video: no password autofill, so iOS doesn't offer to save the demo password.
+    private var noAutofill: Bool {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: "showTouches")
+        #else
+        return false
+        #endif
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -30,15 +39,17 @@ struct LoginView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     field(t("sl.login.email")) {
                         TextField(t("admin.login.emailPlaceholder"), text: $email)
-                            .textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .textContentType(noAutofill ? nil : .username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                             .focused($focus, equals: .email).submitLabel(.next).onSubmit { focus = .password }
                     }
                     field(t("sl.login.password")) {
                         HStack {
                             Group {
-                                if show { TextField("", text: $password) } else { SecureField("", text: $password) }
+                                if show { TextField("", text: $password) }
+                                else if noAutofill { TextField("", text: masked) }   // looks like a password field, never offers to save
+                                else { SecureField("", text: $password) }
                             }
-                            .textContentType(.password).focused($focus, equals: .password).submitLabel(.go).onSubmit(submit)
+                            .textContentType(noAutofill ? nil : .password).focused($focus, equals: .password).submitLabel(.go).onSubmit(submit)
                             Button { show.toggle() } label: { Image(systemName: show ? "eye.slash" : "eye").foregroundStyle(Color.slInkMuted) }
                                 .accessibilityLabel(t("sl.login.toggle"))
                         }
@@ -63,6 +74,14 @@ struct LoginView: View {
         }
         .background(Color.slPaper.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// Bullets on screen, the real text underneath (video mode only).
+    private var masked: Binding<String> {
+        Binding(get: { String(repeating: "•", count: password.count) }, set: { v in
+            let typed = v.filter { $0 != "•" }
+            password = v.count < password.count ? String(password.prefix(v.count)) : password + typed
+        })
     }
 
     private func submit() {

@@ -66,6 +66,7 @@ private struct ActionCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("action-" + action.id)
 
             if open {
                 VStack(alignment: .leading, spacing: 12) {

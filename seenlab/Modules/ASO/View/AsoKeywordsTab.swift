@@ -28,7 +28,7 @@ struct AsoKeywordsTab: View {
                 VStack(spacing: 0) {
                     ForEach(rows) { k in
                         RowDivider()
-                        Button { open = k } label: { AsoKeywordRow(keyword: k) }.buttonStyle(.plain)
+                        Button { open = k } label: { AsoKeywordRow(keyword: k) }.buttonStyle(.plain).accessibilityIdentifier("kw-" + (k.term ?? ""))
                     }
                 }
             }

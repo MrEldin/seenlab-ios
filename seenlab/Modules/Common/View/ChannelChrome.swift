@@ -44,6 +44,7 @@ struct ChannelNav<Content: View>: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { kbChapter = KBStart(chapter: nil) } label: { Image(systemName: "book.pages") }
                             .accessibilityLabel(t("kb.open"))
+                            .accessibilityIdentifier("kb-button")
                     }
                 }
                 .toolbarBackground(Color.slBg, for: .navigationBar)
@@ -68,6 +69,7 @@ struct ProjectMenu: View {
             }
         }
         .accessibilityLabel(t("ios.pickProject"))
+        .accessibilityIdentifier("project-button")
         .sheet(isPresented: $open) { ProjectPickerSheet() }
         #if DEBUG
         .onAppear { if UserDefaults.standard.bool(forKey: "openPicker") { open = true } }

@@ -78,6 +78,7 @@ struct KnowledgeBaseSheet: View {
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.slLine))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("kb-" + ch.id)
                     }
                 }
                 .padding(16)

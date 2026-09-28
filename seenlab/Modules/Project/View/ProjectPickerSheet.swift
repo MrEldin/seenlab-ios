@@ -60,7 +60,7 @@ struct ProjectPickerSheet: View {
             Text(title).font(.dm(12.5, .semibold)).foregroundStyle(.white.opacity(0.55)).padding(.leading, 4)
             VStack(spacing: 8) {
                 ForEach(list) { p in
-                    ProjectCard(project: p, active: p.id == projects.currentId) { pick(p) }
+                    ProjectCard(project: p, active: p.id == projects.currentId) { pick(p) }.accessibilityIdentifier("project-\(p.id)")
                 }
             }
         }

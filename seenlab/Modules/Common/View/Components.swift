@@ -343,6 +343,7 @@ struct ChannelTabs: View {
                             .overlay(Capsule().stroke(on ? Color.slTint200 : .clear, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("tab-" + tab.key)
                         .id(tab.key)
                     }
                 }
