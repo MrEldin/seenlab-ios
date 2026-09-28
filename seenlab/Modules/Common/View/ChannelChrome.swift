@@ -54,26 +54,24 @@ struct ChannelNav<Content: View>: View {
     }
 }
 
-/// The project picker (the web's rail): icon + name, a menu of all projects.
+/// The project button in every channel's toolbar: the current project, tap to open the picker.
 struct ProjectMenu: View {
     @EnvironmentObject private var projects: ProjectStore
+    @State private var open = false
 
     var body: some View {
-        Menu {
-            Section(t("ios.pickProject")) {
-                ForEach(projects.projects) { p in
-                    Button { projects.select(p.id) } label: {
-                        Label(p.name, systemImage: p.id == projects.currentId ? "checkmark" : p.platformIcon)
-                    }
-                }
-            }
-        } label: {
+        Button { open = true } label: {
             HStack(spacing: 8) {
                 RemoteIcon(url: projects.current?.iconUrl, size: 26, fallback: projects.current?.platformIcon ?? "app.fill")
                 Text(projects.current?.name ?? "Seenlab").font(.dm(14, .semibold)).foregroundStyle(Color.slInk).lineLimit(1).frame(maxWidth: 190, alignment: .leading)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.slInkMuted)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.slInkMuted)
             }
         }
+        .accessibilityLabel(t("ios.pickProject"))
+        .sheet(isPresented: $open) { ProjectPickerSheet() }
+        #if DEBUG
+        .onAppear { if UserDefaults.standard.bool(forKey: "openPicker") { open = true } }
+        #endif
     }
 }
 
