@@ -20,7 +20,7 @@ struct seenlabApp: App {
         if let token = UserDefaults.standard.string(forKey: "debugToken") { KeyChainManager.shared.token = token }
         // `-resetSession YES` starts signed out (the app video begins at the login screen).
         if UserDefaults.standard.bool(forKey: "resetSession") {
-            KeyChainManager.shared.token = nil
+            if UserDefaults.standard.string(forKey: "debugToken") == nil { KeyChainManager.shared.token = nil }
             // a clean first-launch state, written to the app's own defaults (not locked like launch arguments)
             let d = UserDefaults.standard
             ["aso.tab", "seo.tab", "aio.tab", "aso.country", "kb.read"].forEach { d.removeObject(forKey: $0) }
