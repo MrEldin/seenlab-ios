@@ -85,7 +85,7 @@ struct ChannelHeader<Headline: View>: View {
     @EnvironmentObject private var projects: ProjectStore
 
     var body: some View {
-        SLCard {
+        SLCard(span: .full) {
             HStack(spacing: 10) {
                 RemoteIcon(url: projects.current?.iconUrl, size: 30, fallback: projects.current?.platformIcon ?? "app.fill")
                 (Text(Fmt.today()).fontWeight(.semibold).foregroundStyle(Color.slInk) + Text(" · " + t("sl.shell." + (channel == "aio" ? "ai" : channel)) + (status.map { " · " + $0 } ?? "")).foregroundStyle(Color.slInkMuted))

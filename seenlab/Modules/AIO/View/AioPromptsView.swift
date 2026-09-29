@@ -16,8 +16,10 @@ struct AioPromptsView: View {
     private var prompts: [AioPromptRow] { data.prompts ?? [] }
     private var activeCount: Int { prompts.filter { $0.isActive != false }.count }
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
     var body: some View {
-        SLCard {
+        SLCard(span: .full) {
             HStack(alignment: .top, spacing: 10) {
                 CardTitle(title: t("aio.prompts.title"), subtitle: t("aio.prompts.subtitle"), kb: { channel.kb("prompts") })
                 Spacer(minLength: 0)
@@ -32,6 +34,15 @@ struct AioPromptsView: View {
         if prompts.isEmpty {
             EmptyCard(icon: "flask", title: t("aio.prompts.empty"), text: t("aio.prompts.emptyHint"))
             AioWebNote()
+        } else if sizeClass == .regular {
+            // iPad: every prompt is its own card, two per row
+            ForEach(prompts, id: \.id) { p in
+                SLCard(padding: 0) {
+                    Button { open(p) } label: { AioPromptCell(prompt: p, engines: data.enabledEngines) }
+                        .accessibilityIdentifier("prompt-\(p.id)")
+                        .buttonStyle(.plain)
+                }
+            }
         } else {
             SLCard(padding: 0) {
                 RowList(items: prompts) { p in

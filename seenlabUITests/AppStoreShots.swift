@@ -37,8 +37,14 @@ final class AppStoreShots: XCTestCase {
         e.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         wait(0.6)
     }
+    /// The channel tabs: a tab bar on iPhone, the top tab strip on iPad.
+    private func channel(_ name: String) {
+        let bar = app.tabBars.buttons[name]
+        (bar.exists ? bar : app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch).tap()
+    }
     private func shot(_ name: String) { wait(1.4); print("SHOT \(name)"); wait(2.2) }
     private func scroll(_ dy: CGFloat) {
+        if app.frame.width > 600 { return }   // iPad: everything fits, no scrolling
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -dy)), withVelocity: 600, thenHoldForDuration: 0.4)
         wait(0.8)
@@ -50,7 +56,7 @@ final class AppStoreShots: XCTestCase {
     }
 
     func testShots() throws {
-        app.launchArguments = ["-apiBase", "http://localhost:8787", "-debugToken", "demo", "-resetSession", "YES", "-demoProject", "1", "-locale", "en"]
+        app.launchArguments = ["-apiBase", "http://localhost:8787", "-debugToken", "demo", "-resetSession", "YES", "-demoProject", "1", "-locale", "en", "-startTab", "aso"]
         app.launch()
         _ = id("project-button")
 
@@ -60,10 +66,10 @@ final class AppStoreShots: XCTestCase {
         scroll(-900); scroll(-900)
         tab("ai", strip: "keywords"); scroll(240); shot("04-ai")
 
-        app.tabBars.buttons["SEO"].tap(); wait(1.5)
+        channel("SEO"); wait(1.5)
         touch("action-a1"); shot("05-plan")
 
-        app.tabBars.buttons["AIO"].tap(); shot("06-aio")
+        channel("AIO"); shot("06-aio")
         scroll(420); touch("prompt-1"); wait(0.8); shot("07-answer"); dismissSheet()
         scroll(-900); scroll(-900)
         tab("sources", strip: "prompts"); scroll(160); shot("08-sources")

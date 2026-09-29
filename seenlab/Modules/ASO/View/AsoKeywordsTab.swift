@@ -18,7 +18,7 @@ struct AsoKeywordsTab: View {
     @State private var open: AsoKeyword?
 
     var body: some View {
-        SLCard(padding: 0) {
+        SLCard(padding: 0, span: .full) {
             CardTitle(title: t("aso.kw.tableTitle", ["country": store.country.uppercased()]), subtitle: t("aso.kw.tableSubtitle"), kb: { channel.kb("keyword-strategy") })
                 .padding([.horizontal, .top], 18)
             controls.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 6)

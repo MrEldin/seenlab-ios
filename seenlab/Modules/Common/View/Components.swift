@@ -11,6 +11,8 @@ import SwiftUI
 /// A white card (the web's `rounded-3xl border border-sl-line bg-white`).
 struct SLCard<Content: View>: View {
     var padding: CGFloat = 18
+    /// On an iPad: `.column` sits next to another card, `.full` takes the whole row (tables, long lists).
+    var span: CardSpan = .column
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -20,6 +22,7 @@ struct SLCard<Content: View>: View {
             .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.slLine, lineWidth: 1))
             .shadow(color: Color.slInk.opacity(0.04), radius: 1, y: 1)
+            .cardSpan(span)
     }
 }
 
@@ -202,7 +205,7 @@ struct EmptyCard: View {
     var text: String? = nil
 
     var body: some View {
-        SLCard {
+        SLCard(span: .full) {
             VStack(spacing: 8) {
                 Image(systemName: icon).font(.system(size: 28, weight: .light)).foregroundStyle(Color.slAccent600)
                 Text(title).font(.dm(15, .semibold)).foregroundStyle(Color.slInk).multilineTextAlignment(.center)
@@ -216,7 +219,7 @@ struct EmptyCard: View {
 
 struct LoadingCard: View {
     var body: some View {
-        SLCard { HStack { Spacer(); ProgressView().tint(Color.slAccent600); Spacer() }.padding(.vertical, 30) }
+        SLCard(span: .full) { HStack { Spacer(); ProgressView().tint(Color.slAccent600); Spacer() }.padding(.vertical, 30) }
     }
 }
 
@@ -224,7 +227,7 @@ struct ErrorCard: View {
     let message: String
     let retry: () -> Void
     var body: some View {
-        SLCard {
+        SLCard(span: .full) {
             VStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle").font(.system(size: 24)).foregroundStyle(Color.slWarn)
                 Text(message).font(.dm(13.5)).foregroundStyle(Color.slInkSoft).multilineTextAlignment(.center)
@@ -365,12 +368,13 @@ extension Text {
 /// Screen scaffolding: paper background, scrolling column with the web's spacing, pull to refresh.
 struct ChannelScroll<Content: View>: View {
     var refresh: (() async -> Void)? = nil
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ViewBuilder var content: Content
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) { content }
-                .padding(.horizontal, 16)
+            CardFlow(spacing: 14) { content }
+                .padding(.horizontal, horizontalSizeClass == .regular ? 28 : 16)
                 .padding(.top, 8)
                 .padding(.bottom, 32)
         }

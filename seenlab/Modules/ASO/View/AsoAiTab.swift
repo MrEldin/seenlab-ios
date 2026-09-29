@@ -46,7 +46,7 @@ struct AsoAiTab: View {
     private func proposal(_ r: AsoSuggestionResult, _ s: AsoSuggestion) -> some View {
         let android = isAndroid(r)
         let own = store.overview?.own
-        return SLCard {
+        return SLCard(span: .full) {
             CardTitle(eyebrow: t("aso.tabs.ai"), title: t("aso.ai.proposalTitle"),
                       subtitle: t("aso.ai.proposalSubtitle", ["time": Fmt.relative(r.generatedAt), "model": r.ai?.model ?? "—", "tokens": Fmt.int(r.ai?.usage?.totalTokens ?? 0)]),
                       kb: { channel.kb("ai-proposal") })
@@ -61,10 +61,13 @@ struct AsoAiTab: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.slTint50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                AsoProposalField(label: t("aso.audit.fieldTitle"), item: s.title, current: own?.name, defaultMax: 30)
-                AsoProposalField(label: android ? t("aso.audit.fieldShortDescription") : t("aso.audit.fieldSubtitle"), item: s.subtitle, current: own?.subtitle, defaultMax: android ? 80 : 30)
-                if !android {
-                    AsoProposalField(label: t("aso.audit.fieldKeywords"), item: s.keywordField, current: store.audit?.fields?.keywordField?.text, defaultMax: 100, mono: true)
+                // the proposed fields: one under the other on a phone, side by side on an iPad
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12, alignment: .top)], alignment: .leading, spacing: 12) {
+                    AsoProposalField(label: t("aso.audit.fieldTitle"), item: s.title, current: own?.name, defaultMax: 30)
+                    AsoProposalField(label: android ? t("aso.audit.fieldShortDescription") : t("aso.audit.fieldSubtitle"), item: s.subtitle, current: own?.subtitle, defaultMax: android ? 80 : 30)
+                    if !android {
+                        AsoProposalField(label: t("aso.audit.fieldKeywords"), item: s.keywordField, current: store.audit?.fields?.keywordField?.text, defaultMax: 100, mono: true)
+                    }
                 }
                 if android, let d = s.description, let text = d.text, !text.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {

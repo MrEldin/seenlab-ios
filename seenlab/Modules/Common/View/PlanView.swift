@@ -19,7 +19,7 @@ struct PlanView: View {
     private var actions: [ActionPlan.Action] { (plan?.actions ?? []).filter { $0.channel == channel } }
 
     var body: some View {
-        SLCard {
+        SLCard(span: .full) {
             CardTitle(eyebrow: t("plan.eyebrow"), title: t("plan.title"), subtitle: t("plan.subtitle"), kb: kb.map { k in { k("plan") } })
             if let at = plan?.generatedAt {
                 Text(t("plan.made", ["time": Fmt.relative(at)])).font(.dm(11)).foregroundStyle(Color.slInkFaint).padding(.top, 6)

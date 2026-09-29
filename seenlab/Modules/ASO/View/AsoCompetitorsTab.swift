@@ -13,16 +13,16 @@ struct AsoCompetitorsTab: View {
     @Environment(\.channel) private var channel
 
     var body: some View {
-        SLCard(padding: 0) {
+        SLCard(padding: 0, span: .full) {
             CardTitle(title: t("aso.comp.listTitle"), subtitle: t("aso.comp.listSubtitle"), kb: { channel.kb("competitors") })
                 .padding(18)
             if store.apps.isEmpty {
                 AsoInlineEmpty(title: t("aso.comp.empty"), hint: t("aso.comp.emptyHint"), icon: "person.2").padding(.bottom, 10)
             } else {
-                VStack(spacing: 0) {
+                // one column on a phone, two on an iPad
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 400), spacing: 0, alignment: .top)], spacing: 0) {
                     ForEach(store.apps) { app in
-                        RowDivider()
-                        AsoAppRow(app: app)
+                        VStack(spacing: 0) { RowDivider(); AsoAppRow(app: app) }
                     }
                 }
             }

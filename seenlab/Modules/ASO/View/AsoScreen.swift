@@ -87,12 +87,9 @@ struct AsoHeader: View {
 
     var body: some View {
         if details {
-            VStack(alignment: .leading, spacing: 10) {
-                if !actions.isEmpty {
-                    VStack(spacing: 8) { ForEach(actions) { AsoActionCard(action: $0) } }
-                }
-                SLCard { KpiGrid(items: stats) }
-            }
+            // separate cards, so on an iPad they sit side by side
+            ForEach(actions) { AsoActionCard(action: $0).cardSpan(.column) }
+            SLCard { KpiGrid(items: stats) }
         } else {
             ChannelHeader(channel: "aso", status: status) {
                 VStack(alignment: .leading, spacing: 16) {
