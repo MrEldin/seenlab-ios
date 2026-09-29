@@ -367,7 +367,7 @@ private struct SeoLinksCard: View {
                         }
                         if let anchor = l.anchor, !anchor.isEmpty {
                             HStack(spacing: 8) {
-                                (Text(t("seo.links.anchor") + ": ").foregroundStyle(Color.slInkSoft) + Text("„\(anchor)“").fontWeight(.semibold).foregroundStyle(Color.slInk))
+                                (Text(t("seo.links.anchor") + ": ").foregroundStyle(Color.slInkSoft) + Text(Fmt.quote(anchor)).fontWeight(.semibold).foregroundStyle(Color.slInk))
                                     .font(.dm(12)).lineLimit(2)
                                 Spacer(minLength: 0)
                                 CopyButton(text: "<a href=\"\(l.url ?? "")\">\(anchor)</a>", label: t("seo.links.copyLink"))

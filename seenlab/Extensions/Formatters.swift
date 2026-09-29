@@ -60,6 +60,16 @@ enum Fmt {
         return "#" + num(v, digits: 1)
     }
 
+    /// Quotes in the reader's language: „…“ in Serbian and German, «…» in French and Spanish, “…” otherwise.
+    static func quote(_ s: String) -> String {
+        switch L10n.shared.locale {
+        case "sr", "de": return "„" + s + "“"
+        case "fr": return "« " + s + " »"
+        case "es": return "«" + s + "»"
+        default: return "“" + s + "”"
+        }
+    }
+
     static func host(_ url: String?) -> String {
         guard let url, let u = URL(string: url), let h = u.host else { return url ?? "" }
         return h.hasPrefix("www.") ? String(h.dropFirst(4)) : h

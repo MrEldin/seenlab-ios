@@ -24,7 +24,7 @@ struct AioAccuracyView: View {
             if let wanted = data.positioning, !wanted.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(t("ios.aio.wanted")).font(.dm(11.5, .semibold)).foregroundStyle(Color.slAccent800)
-                    Text("„" + wanted + "“").font(.dm(13.5, .medium)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
+                    Text(Fmt.quote(wanted)).font(.dm(13.5, .medium)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -39,7 +39,7 @@ struct AioAccuracyView: View {
                     ForEach(perception, id: \.engine) { p in
                         HStack(alignment: .top, spacing: 10) {
                             AioEngineMark(engine: p.engine, label: data.label(p.engine), size: 20)
-                            Text("„" + (p.summary ?? "") + "“").font(.dm(13.5)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
+                            Text(Fmt.quote(p.summary ?? "")).font(.dm(13.5)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
                         }
                         .padding(12)
@@ -91,7 +91,7 @@ struct AioAccuracyView: View {
             Image(systemName: wrong ? "xmark.circle.fill" : "questionmark.circle")
                 .font(.system(size: 17)).foregroundStyle(wrong ? Color.slBad : Color.slWarn)
             VStack(alignment: .leading, spacing: 5) {
-                Text("„" + (c.claim ?? "") + "“").font(.dm(14)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
+                Text(Fmt.quote(c.claim ?? "")).font(.dm(14)).foregroundStyle(Color.slInk).fixedSize(horizontal: false, vertical: true)
                 if let fix = c.fix, !fix.isEmpty {
                     (Text(t("aio.accuracy.truth") + ": ").font(.dm(12.5, .semibold)).foregroundStyle(Color.slGood)
                      + Text(fix).font(.dm(12.5)).foregroundStyle(Color.slInkSoft))
