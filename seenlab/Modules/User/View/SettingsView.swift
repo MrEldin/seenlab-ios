@@ -28,7 +28,8 @@ struct SettingsView: View {
                                 Text(u.email ?? "").font(.dm(13)).foregroundStyle(Color.slInkMuted)
                             }
                             Spacer()
-                            if let plan = u.plan { Chip(text: plan.capitalized, tone: .accent) }
+                            // The effective plan (trial, paid or Free) rather than the raw column.
+                            if let plan = u.subscription?.label ?? u.plan?.capitalized { Chip(text: plan, tone: .accent) }
                         }
                     }
                 }

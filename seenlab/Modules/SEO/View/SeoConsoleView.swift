@@ -157,7 +157,10 @@ private struct SeoGscKpis: View {
     private var kpis: [Kpi] {
         let n = totals, p = prev
         let clicks = pct(n?.clicks, p?.clicks), impr = pct(n?.impressions, p?.impressions)
-        let ctr: Double? = (p?.impressions ?? 0) != 0 ? (((n?.ctr ?? 0) - (p?.ctr ?? 0)) * 10).rounded() / 10 : nil
+        // in steps: as one expression the type-checker gives up
+        let prevImpressions = p?.impressions ?? 0
+        let ctrDiff = (n?.ctr ?? 0) - (p?.ctr ?? 0)
+        let ctr: Double? = prevImpressions != 0 ? (ctrDiff * 10).rounded() / 10 : nil
         let pos: Double? = n?.position.flatMap { a in p?.position.map { b in ((a - b) * 10).rounded() / 10 } }
         return [
             Kpi(label: t("seo.gsc.kpi.clicks"), value: SeoFmt.num(n?.clicks), delta: clicks, deltaText: Fmt.int(abs(clicks ?? 0)) + "%"),

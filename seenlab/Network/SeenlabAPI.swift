@@ -45,11 +45,16 @@ struct APIRoute {
     var body: [String: Any]? = nil
     /// Adds `app_id` of the project being viewed.
     var scoped: Bool = false
+
+    /// Everything but signing in and the refresh itself rides on the stored token (and may refresh it first).
+    var usesSession: Bool { path != "/login" && path != "/auth/refresh" }
 }
 
 enum SeenlabAPI {
     // Auth
     static func login(email: String, password: String) -> APIRoute { APIRoute(path: "/login", method: .POST, body: ["email": email, "password": password]) }
+    /// Takes the current token (expired is fine, for 30 days) and answers with a new one; 401 = sign in again.
+    static let refresh = APIRoute(path: "/auth/refresh")
     static let user = APIRoute(path: "/auth/user")
     static let logout = APIRoute(path: "/auth/logout", method: .POST)
     static func profile(locale: String) -> APIRoute { APIRoute(path: "/auth/profile", method: .PUT, body: ["locale": locale]) }

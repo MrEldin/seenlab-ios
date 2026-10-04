@@ -3,7 +3,9 @@
 //  seenlab
 //
 //  The signed-in app: one tab per channel (ASO · SEO · AIO) plus settings. The project being viewed is
-//  picked from the menu in every channel's toolbar, like the web's app rail.
+//  picked from the menu in every channel's toolbar, like the web's app rail. Only the channels the
+//  account's plan includes get a tab (GET auth/user → subscription); a website project keeps its ASO
+//  tab, which shows the web's "attach an app" notice instead of a dashboard.
 //
 
 import SwiftUI
@@ -13,6 +15,11 @@ struct MainView: View {
     @EnvironmentObject private var auth: AuthStore
     @SceneStorage("tab") private var tab: Channel = .aso
 
+    /// The channels the plan includes, in tab order. Until the user is loaded, all of them.
+    private var channels: [Channel] {
+        [Channel.aso, .seo, .aio].filter { auth.user?.subscription?.includes($0) ?? true }
+    }
+
     var body: some View {
         Group {
             if !projects.loaded {
@@ -21,9 +28,15 @@ struct MainView: View {
                 NoProjectsView()
             } else {
                 TabView(selection: $tab) {
-                    Tab(t("sl.shell.aso"), systemImage: "iphone", value: Channel.aso) { ChannelNav(channel: "aso", open: open) { AsoScreen() } }
-                    Tab(t("sl.shell.seo"), systemImage: "globe", value: Channel.seo) { ChannelNav(channel: "seo", open: open) { SeoScreen() } }
-                    Tab(t("sl.shell.ai"), systemImage: "bubble.left.and.text.bubble.right", value: Channel.aio) { ChannelNav(channel: "aio", open: open) { AioScreen() } }
+                    if channels.contains(.aso) {
+                        Tab(t("sl.shell.aso"), systemImage: "iphone", value: Channel.aso) { ChannelNav(channel: "aso", open: open) { AsoScreen() } }
+                    }
+                    if channels.contains(.seo) {
+                        Tab(t("sl.shell.seo"), systemImage: "globe", value: Channel.seo) { ChannelNav(channel: "seo", open: open) { SeoScreen() } }
+                    }
+                    if channels.contains(.aio) {
+                        Tab(t("sl.shell.ai"), systemImage: "bubble.left.and.text.bubble.right", value: Channel.aio) { ChannelNav(channel: "aio", open: open) { AioScreen() } }
+                    }
                     Tab(t("ios.settings.title"), systemImage: "gearshape", value: Channel.settings) { SettingsView() }
                 }
                 .tint(Color.slAccent600)
@@ -34,9 +47,14 @@ struct MainView: View {
         .onAppear { if let t = UserDefaults.standard.string(forKey: "startTab"), let c = Channel(rawValue: t) { tab = c } }
         #endif
         .task { if auth.user == nil { await auth.loadUser() } }
+        .onChange(of: channels, initial: true) { _, available in
+            // The remembered tab may belong to a channel this plan no longer includes.
+            if !available.contains(tab), tab != .settings { tab = available.first ?? .settings }
+        }
     }
 
-    private func open(_ c: Channel) { tab = c }
+    /// Opens another channel (from a channel's own buttons); one the plan lacks stays where it is.
+    private func open(_ c: Channel) { if channels.contains(c) || c == .settings { tab = c } }
 }
 
 /// No project yet: projects are added on the web.

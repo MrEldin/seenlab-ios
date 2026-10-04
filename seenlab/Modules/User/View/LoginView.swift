@@ -65,6 +65,17 @@ struct LoginView: View {
                     .buttonStyle(SLButtonStyle(kind: .primary))
                     .disabled(auth.busy || email.isEmpty || password.isEmpty)
                     .padding(.top, 4)
+
+                    // Accounts are made on the web (the web login's "Create an account" link).
+                    HStack(spacing: 4) {
+                        Text(t("sl.auth.login.noAccount")).foregroundStyle(Color.slInkMuted)
+                        Link(t("sl.auth.login.create"), destination: URL(string: "https://seenlab.io/register")!)
+                            .foregroundStyle(Color.slAccent700).fontWeight(.semibold)
+                            .accessibilityIdentifier("register-link")
+                    }
+                    .font(.dm(13.5))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 2)
                 }
 
                 peek
