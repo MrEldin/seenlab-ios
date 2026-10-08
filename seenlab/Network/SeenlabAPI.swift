@@ -87,4 +87,12 @@ enum SeenlabAPI {
     static func aioOverview(days: Int = 30) -> APIRoute { APIRoute(path: "/admin/aio/overview", query: ["days": String(days)], scoped: true) }
     static func aioPrompt(id: Int) -> APIRoute { APIRoute(path: "/admin/aio/prompts/\(id)", scoped: true) }
     static func aioLatestJobs(type: String) -> APIRoute { APIRoute(path: "/admin/aio/jobs/latest", query: ["type": type], scoped: true) }
+
+    // Growth: the board of a project, or of someone else's project shared with me (board = its app id).
+    static func growth(_ path: String, method: HTTPMethod = .GET, board: Int?, query: [String: String] = [:], body: [String: Any]? = nil) -> APIRoute {
+        var q = query
+        if let board { q["app_id"] = String(board) }
+        return APIRoute(path: "/admin/growth/" + path, method: method, query: q, body: body, scoped: board == nil)
+    }
+    static let growthShared = APIRoute(path: "/admin/growth/shared")
 }

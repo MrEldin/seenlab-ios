@@ -37,6 +37,8 @@ struct MainView: View {
                     if channels.contains(.aio) {
                         Tab(t("sl.shell.ai"), systemImage: "bubble.left.and.text.bubble.right", value: Channel.aio) { ChannelNav(channel: "aio", open: open) { AioScreen() } }
                     }
+                    // Growth: the board, the whole screen (no channel header); Free sees the sample.
+                    Tab(t("sl.shell.growth"), systemImage: "map", value: Channel.growth) { GrowthScreen() }
                     Tab(t("ios.settings.title"), systemImage: "gearshape", value: Channel.settings) { SettingsView() }
                 }
                 .tint(Color.slAccent600)
@@ -49,12 +51,12 @@ struct MainView: View {
         .task { if auth.user == nil { await auth.loadUser() } }
         .onChange(of: channels, initial: true) { _, available in
             // The remembered tab may belong to a channel this plan no longer includes.
-            if !available.contains(tab), tab != .settings { tab = available.first ?? .settings }
+            if !available.contains(tab), tab != .settings, tab != .growth { tab = available.first ?? .settings }
         }
     }
 
     /// Opens another channel (from a channel's own buttons); one the plan lacks stays where it is.
-    private func open(_ c: Channel) { if channels.contains(c) || c == .settings { tab = c } }
+    private func open(_ c: Channel) { if channels.contains(c) || c == .settings || c == .growth { tab = c } }
 }
 
 /// No project yet: projects are added on the web.

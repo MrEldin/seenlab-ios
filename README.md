@@ -11,4 +11,9 @@ SwiftUI, iOS 18+. Architecture follows HydrateTap: `Network/`, `Extensions/`, `M
   without typing, `-startTab aso|seo|aio|settings` opens a tab. Release builds always use the production API.
 - **Privacy manifest**: `seenlab/PrivacyInfo.xcprivacy` (no tracking; email, name and user id for app functionality;
   UserDefaults reason CA92.1). The `seenlab` folder is a synchronized group, so it ships in the bundle automatically.
+- **Growth (Rast)** is a board, not a report: `Modules/Growth` draws the same board as the web (same coordinates as
+  GrowthBoard.vue) — one finger pans, two zoom, hold a card or a note to move it, tap to open; lenses, the inbox,
+  rivals' channels, experiments, comments, the coach, notes to steps. Free accounts see the sample board.
+  Saves go through PUT growth/layout with the board's rev; a refused save is merged (BoardEngine.merge) and saved again.
+  UI check: `TEST_RUNNER_SL_TOKEN=<jwt> xcodebuild test … -parallel-testing-enabled NO -only-testing:seenlabUITests/GrowthBoardTests`.
 - Managing projects, keywords, prompts and the account stays on the web; the app links there.

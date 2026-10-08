@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-enum Channel: String, CaseIterable { case aso, seo, aio, settings }
+enum Channel: String, CaseIterable { case aso, seo, aio, growth, settings }
 
 /// Lets a channel open another one (the web's "Otvori SEO" buttons) or its knowledge base at a chapter.
 struct ChannelActions {

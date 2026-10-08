@@ -58,6 +58,9 @@ final class NetworkManager {
         }
     }
 
+    /// The raw body of a successful call (the growth board decodes it with its own decoder: card ids are map keys).
+    func data(_ route: APIRoute) async throws -> Data { try await raw(route) }
+
     /// Same, for responses that are not wrapped (the login token).
     func requestPlain<T: Decodable>(_ route: APIRoute, as type: T.Type = T.self) async throws -> T {
         let data = try await raw(route)
