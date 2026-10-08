@@ -143,6 +143,7 @@ struct GrowthScreen: View {
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
+            if lens == .status { statusSummary }
             if locked {
                 HStack(spacing: 10) {
                     Label(t("growth.locked.tag"), systemImage: "lock.fill").font(.dm(11, .heavy)).padding(.horizontal, 8).padding(.vertical, 4).background(Color.slMarker, in: Capsule()).foregroundStyle(Color.slInk)
@@ -181,6 +182,26 @@ struct GrowthScreen: View {
             .padding(4).background(.white, in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.slLine))
             .shadow(color: Color.slInk.opacity(0.12), radius: 18, y: 10)
         }
+    }
+
+    /// The status lens: how many steps are done, under way, waiting, late.
+    private var statusSummary: some View {
+        let now = started.map { Int(Date().timeIntervalSince($0) / 86400 / 7) + 1 }
+        var n = ["done": 0, "doing": 0, "todo": 0, "late": 0]
+        for c in store.cards {
+            let st = store.marks[c.id]?.status ?? "todo"
+            if st == "todo", let now, c.week < now { n["late", default: 0] += 1 } else if st != "skipped" { n[st, default: 0] += 1 }
+        }
+        return HStack(spacing: 6) {
+            ForEach(["done", "doing", "todo", "late"], id: \.self) { k in
+                if k != "late" || n[k]! > 0 {
+                    Text((k == "late" ? t("growth.lens.st.lateN", ["n": n[k]!]) : t("growth.lens.st." + k) + " \(n[k]!)")).font(.dm(12, .heavy))
+                        .foregroundStyle(k == "doing" ? Color.slInk : .white).padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(["done": Color.slGood, "doing": Color.slMarker, "late": Color.slBad][k] ?? Color.slInkMuted, in: Capsule())
+                }
+            }
+        }
+        .padding(6).background(.white, in: Capsule()).overlay(Capsule().stroke(Color.slLine))
     }
 
     /// A free place next to some cards (the coach's notes), or under the first column.

@@ -16,7 +16,7 @@ enum GrowthLens: String, CaseIterable { case map, status, result, time
 
 /// Board geometry (board points), the same numbers as GrowthBoard.vue.
 enum BG {
-    static let cardW: CGFloat = 300, cardH: CGFloat = 172, sugH: CGFloat = 156, gapY: CGFloat = 28, gapX: CGFloat = 250, pad: CGFloat = 48, framePad: CGFloat = 24, head: CGFloat = 110
+    static let cardW: CGFloat = 300, cardH: CGFloat = 172, sugH: CGFloat = 156, gapY: CGFloat = 28, gapX: CGFloat = 250, pad: CGFloat = 48, framePad: CGFloat = 24, head: CGFloat = 130
     static let colStep = cardW + framePad * 2 + gapX
     static let top = pad + head + framePad
     static let weekW = cardW + 64
@@ -76,13 +76,13 @@ struct GrowthCanvas: View {
             var y = BG.top
             for c in col.cards { cards.append(PlacedCard(card: c, kind: col.kind, x: BG.colX(i), y: y)); y += BG.cardH + BG.gapY }
             if col.cards.isEmpty { y += BG.cardH + BG.gapY }
-            for s in col.suggestions where !readonly { sugs.append(PlacedSug(sug: s, kind: col.kind, x: BG.colX(i), y: y)); y += BG.sugH + BG.gapY }
+            for s in col.suggestions where !readonly && lens != .status { sugs.append(PlacedSug(sug: s, kind: col.kind, x: BG.colX(i), y: y)); y += BG.sugH + BG.gapY }
             bottom = max(bottom, y - BG.gapY)
         }
         return (cards, sugs, bottom, [])
     }
 
-    private var showInbox: Bool { !timed && !readonly && !store.inbox.isEmpty }
+    private var showInbox: Bool { !timed && lens != .status && !readonly && !store.inbox.isEmpty }
     private var inboxX: CGFloat { BG.pad + BG.framePad - BG.inboxW }
     private var minX: CGFloat { showInbox ? inboxX - BG.framePad - 8 : 0 }
     private func boardSize(_ bottom: CGFloat, weeks: Int) -> CGSize {
@@ -191,7 +191,7 @@ struct GrowthCanvas: View {
             }
         } else {
             ForEach(Array(columns.enumerated()), id: \.element.kind) { i, col in
-                ColumnHead(kind: col.kind, title: col.title, note: col.note).frame(width: BG.cardW, alignment: .leading).offset(x: BG.colX(i) + dx, y: BG.pad)
+                ColumnHead(kind: col.kind, title: col.title, note: col.note).frame(width: BG.cardW, height: 190, alignment: .bottomLeading).offset(x: BG.colX(i) + dx, y: BG.top - BG.framePad - 10 - 190)
             }
         }
     }
@@ -199,7 +199,7 @@ struct GrowthCanvas: View {
     @ViewBuilder private var inboxLayer: some View {
         if showInbox {
             let dx = -minX
-            ColumnHead(kind: "inbox", title: t("growth.inbox.title"), note: t("growth.inbox.note")).frame(width: BG.cardW, alignment: .leading).offset(x: inboxX + dx, y: BG.pad)
+            ColumnHead(kind: "inbox", title: t("growth.inbox.title"), note: t("growth.inbox.note")).frame(width: BG.cardW, height: 190, alignment: .bottomLeading).offset(x: inboxX + dx, y: BG.top - BG.framePad - 10 - 190)
             ForEach(Array(store.inbox.enumerated()), id: \.element.id) { i, it in
                 InboxCard(item: it, onTake: { onInbox(it) }, onDismiss: { store.apply(store.engine.dismissInbox(store.board, id: it.id)) })
                     .frame(width: BG.cardW, height: BG.inboxH).offset(x: inboxX + dx, y: BG.top + CGFloat(i) * (BG.inboxH + BG.gapY))
@@ -222,7 +222,7 @@ struct GrowthCanvas: View {
     private func cardView(_ pc: PlacedCard, heat: Double?) -> some View {
         let c = pc.card
         let owner = store.data?.team?.people.first { $0.id == c.owner }
-        return CardTile(card: c, status: status(c.id), mark: marks[c.id], lens: lens, late: late(c), heat: heat, experiment: store.data?.experiments[c.id], owner: owner, comments: store.comments(for: c.id).count)
+        return CardTile(card: c, status: status(c.id), mark: marks[c.id], lens: lens, late: late(c), heat: heat, experiment: store.data?.experiments[c.id], owner: owner, comments: store.comments(for: c.id).count, lateBy: max(1, (nowWeek ?? c.week) - c.week))
             .frame(width: BG.cardW, height: BG.cardH)
             .opacity(held?.id == c.id ? 0.25 : 1)
             .offset(x: pc.x - minX, y: pc.y)
@@ -242,7 +242,7 @@ struct GrowthCanvas: View {
         let w: CGFloat = n.type == "image" ? (n.w ?? 260) : (["answer", "coach"].contains(n.type) ? BG.noteW + 60 : BG.noteW)
         return StickyTile(note: n, busy: store.busy.contains(n.id))
             .frame(width: w)
-            .opacity(held?.id == n.id ? 0.25 : 1)
+            .opacity(held?.id == n.id || lens == .status ? 0.25 : 1)
             .offset(x: n.x - minX, y: n.y)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("note-" + n.id)
@@ -356,14 +356,19 @@ struct ColumnHead: View {
 
 struct CardTile: View {
     var card: BoardCard; var status: String; var mark: Mark?; var lens: GrowthLens; var late: Bool; var heat: Double?; var experiment: Experiment?; var owner: Person?; var comments: Int
+    var lateBy: Int = 1
 
+    /// The status lens: where the step stands, in one word and one colour.
+    private var stKey: String { late && status == "todo" ? "late" : status }
+    private var stColor: Color { ["done": .slGood, "doing": .slMarker, "late": .slBad, "skipped": .slLineStrong][stKey] ?? .slInkMuted }
     private var bg: Color {
+        if lens == .status { return ["done": Color.slGoodSoft, "doing": Color.slMarker.opacity(0.2), "late": Color.slBadSoft.opacity(0.6)][stKey] ?? Color.slPaper }
         if lens == .result, status == "done" { return Color.slGood.opacity(0.08 + 0.3 * (heat ?? 0)) }
         if status == "done" { return Color.slGoodSoft.opacity(0.7) }
         if lens == .status, status == "doing" { return Color.slMarker.opacity(0.25) }
         return card.source == "custom" ? Color.slMarker.opacity(0.14) : .white
     }
-    private var dim: Bool { (lens == .status && (late || status == "skipped")) || (lens == .result && status != "done") }
+    private var dim: Bool { (lens == .status && status == "skipped") || (lens == .result && status != "done") }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -392,14 +397,17 @@ struct CardTile: View {
         }
         .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 14)
         .background(bg, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(status == "done" ? Color.slGood.opacity(0.7) : card.source == "custom" ? Color.slMarker : Color.slLine, lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(lens == .status ? stColor : status == "done" ? Color.slGood.opacity(0.7) : card.source == "custom" ? Color.slMarker : Color.slLine, style: StrokeStyle(lineWidth: 1.5, dash: lens == .status && (stKey == "todo" || stKey == "late") ? [6, 5] : [])))
+        .overlay(alignment: .leading) { if lens == .status { UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20).fill(stColor).frame(width: 6) } }
         .overlay(alignment: .topLeading) {
             Text(t("growth.node.week", ["n": card.week])).font(.hand(17)).foregroundStyle(Color.slAccent700)
                 .padding(.horizontal, 8).padding(.vertical, 1).background(Color.slPaper, in: Capsule()).overlay(Capsule().stroke(Color.slLine)).offset(x: 14, y: -11)
         }
         .overlay(alignment: .topTrailing) {
-            if status == "done" { Text("✓ " + (mark?.auto == true ? t("growth.board.seen") : t("growth.board.doneStamp"))).font(.hand(16)).foregroundStyle(.white).padding(.horizontal, 8).background(Color.slGood, in: Capsule()).rotationEffect(.degrees(-3)).offset(x: -14, y: -11) }
-            else if lens == .status && late { Chip(text: t("growth.lens.late"), tone: .neutral).offset(x: -14, y: -11) }
+            if lens == .status {
+                Text(stKey == "late" ? t("growth.lens.st.late", ["n": lateBy]) : t("growth.lens.st." + stKey)).font(.dm(11, .heavy)).textCase(.uppercase)
+                    .foregroundStyle(stKey == "doing" || stKey == "skipped" ? Color.slInk : .white).padding(.horizontal, 9).padding(.vertical, 3).background(stColor, in: Capsule()).offset(x: -14, y: -11)
+            } else if status == "done" { Text("✓ " + (mark?.auto == true ? t("growth.board.seen") : t("growth.board.doneStamp"))).font(.hand(16)).foregroundStyle(.white).padding(.horizontal, 8).background(Color.slGood, in: Capsule()).rotationEffect(.degrees(-3)).offset(x: -14, y: -11) }
         }
         .opacity(dim ? 0.45 : 1)
         .shadow(color: Color.slInk.opacity(0.08), radius: 12, y: 8)
@@ -436,8 +444,8 @@ struct SuggestionCard: View {
             HStack {
                 Text(sug.cost > 0 ? "$" + Fmt.int(sug.cost) : t("growth.node.free")).font(.dm(12.5, .heavy))
                 Spacer()
-                Button(t("growth.board.dismiss"), action: onDismiss).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted)
-                Button(action: onAdd) { Label(t("growth.board.accept"), systemImage: "plus.circle").font(.dm(12, .semibold)).padding(.horizontal, 10).padding(.vertical, 5).background(Color.slInk, in: Capsule()).foregroundStyle(.white) }
+                Button(t("growth.board.dismiss"), action: onDismiss).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted).fixedSize()
+                Button(action: onAdd) { Label(t("growth.board.accept"), systemImage: "plus.circle").font(.dm(12, .semibold)).lineLimit(1).fixedSize().padding(.horizontal, 10).padding(.vertical, 5).background(Color.slInk, in: Capsule()).foregroundStyle(.white) }
             }
         }
         .padding(14)
@@ -455,10 +463,11 @@ struct InboxCard: View {
             Text(item.why?.isEmpty == false ? item.why! : GrowthWords.inboxWhy(item)).font(.dm(12.5)).foregroundStyle(Color.slInkSoft).lineLimit(3)
             Spacer(minLength: 0)
             HStack {
-                Text(t("growth.node.free")).font(.dm(12.5, .heavy)).padding(.horizontal, 7).background(Color.slTint100, in: RoundedRectangle(cornerRadius: 6))
-                Spacer()
-                Button(t("growth.board.dismiss"), action: onDismiss).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted)
-                Button(action: onTake) { Label(t("growth.inbox.take"), systemImage: "plus.circle").font(.dm(12, .semibold)).padding(.horizontal, 10).padding(.vertical, 5).background(Color.slInk, in: Capsule()).foregroundStyle(.white) }
+                Text(t("growth.node.free")).font(.dm(12.5, .heavy)).padding(.horizontal, 7).background(Color.slTint100, in: RoundedRectangle(cornerRadius: 6)).fixedSize()
+                Text(t("growth.node.hours", ["n": Fmt.int(item.effortHours ?? 1)])).font(.dm(12)).foregroundStyle(Color.slInkMuted).fixedSize()
+                Spacer(minLength: 4)
+                Button(t("growth.board.dismiss"), action: onDismiss).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted).fixedSize()
+                Button(action: onTake) { Label(t("growth.inbox.take"), systemImage: "plus.circle").font(.dm(12, .semibold)).lineLimit(1).fixedSize().padding(.horizontal, 10).padding(.vertical, 5).background(Color.slInk, in: Capsule()).foregroundStyle(.white) }
             }
         }
         .padding(14)

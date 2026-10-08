@@ -69,7 +69,7 @@ struct BoardEngine {
         if let n = nodes[id] {
             let d = n.channel.flatMap { dir[$0] }
             return BoardCard(id: id, channel: n.channel, channelName: n.channelName ?? d?.name ?? "", kind: n.kind ?? d?.kind ?? "custom", url: n.url ?? d?.url,
-                             title: o?.title ?? n.title ?? "", what: n.what ?? d.map(BoardEngine.describe) ?? "", why: n.why ?? "", steps: n.steps ?? [], copy: n.copy ?? [],
+                             title: o?.title ?? n.title ?? "", what: (n.what?.isEmpty == false ? n.what : nil) ?? d.map(BoardEngine.describe) ?? "", why: n.why ?? "", steps: n.steps ?? [], copy: n.copy ?? [],
                              cost: n.cost ?? 0, effortHours: n.effortHours ?? 1, expect: n.expect ?? d?.expect ?? "", week: Int(o?.week ?? n.week ?? 0),
                              source: n.custom == true ? "custom" : "ai", owner: o?.owner, test: o?.test)
         }
