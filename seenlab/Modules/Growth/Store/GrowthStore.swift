@@ -257,6 +257,41 @@ final class GrowthStore: ObservableObject {
         } catch { notice = (error as? APIError)?.errorDescription ?? t("growth.ai.failed") }
     }
 
+    // MARK: measuring, lists, benchmarks
+
+    var attribution: [String: Measured] { data?.attribution ?? [:] }
+    var prospects: [Prospect] { data?.outreach ?? [] }
+    func benchmark(_ channel: String?) -> Benchmark? { channel.flatMap { data?.benchmarks[$0] } }
+
+    /// The card's own link (made once): every click on it, and what followed, counts for the card.
+    func makeLink(_ card: BoardCard) async {
+        var body: [String: Any] = ["card": card.id]
+        if let ch = card.channel { body["channel"] = ch }
+        do {
+            _ = try await NetworkManager.shared.data(route("links", .POST, body: body))
+            await load(project: projectId, map: data?.current, quiet: true)
+        } catch { notice = (error as? APIError)?.errorDescription ?? t("ios.loadFailed") }
+    }
+
+    private func put(_ row: Prospect) { if let i = data?.outreach.firstIndex(where: { $0.id == row.id }) { data?.outreach[i] = row } }
+    func readProspect(_ id: Int) async {
+        do { if let r = try await call(route("outreach/\(id)/read", .POST, body: [:]), as: Prospect.self) { put(r) } }
+        catch { notice = (error as? APIError)?.errorDescription ?? t("ios.loadFailed") }
+    }
+    /// The AI writes the message for this page (in the page's language), then the list is read again.
+    func pitch(_ id: Int) async throws {
+        guard let j = try await call(route("outreach/\(id)/pitch", .POST, body: ["lang": L10n.shared.locale]), as: GrowthJob.self) else { return }
+        _ = try await waitJob(j.id)
+        if let list = try await call(route("outreach"), as: [Prospect].self) { data?.outreach = list }
+    }
+    func updateProspect(_ id: Int, status: String? = nil, note: String? = nil) async {
+        var body: [String: Any] = [:]
+        if let status { body["status"] = status }
+        if let note { body["note"] = note }
+        do { if let r = try await call(route("outreach/\(id)", .PUT, body: body), as: Prospect.self) { put(r) } }
+        catch { notice = (error as? APIError)?.errorDescription ?? t("ios.loadFailed") }
+    }
+
     // MARK: maps and boards
 
     func openMap(_ id: Int) async {

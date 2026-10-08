@@ -20,10 +20,12 @@ struct GrowthScreen: View {
     @State private var lens: GrowthLens = .map
     @State private var openCard: OpenID?
     @State private var openSticky: OpenID?
+    @State private var openProspect: OpenPID?
     @State private var budgetOpen = false
     @State private var blank = false
 
     struct OpenID: Identifiable { let id: String }
+    struct OpenPID: Identifiable { let id: Int }
 
     private var locked: Bool { real.sharedId == nil && auth.user?.subscription?.tools == false }
     private var showStart: Bool { !locked && !store.running && !store.hasPlan && (store.data?.maps.isEmpty ?? true) && store.cards.isEmpty && store.stickies.isEmpty && !blank && store.data != nil }
@@ -36,7 +38,8 @@ struct GrowthScreen: View {
                 GrowthCanvas(store: store, lens: lens, readonly: locked, marks: store.marks, started: started,
                              onCard: { openCard = OpenID(id: $0) }, onSticky: { openSticky = OpenID(id: $0) },
                              onSuggestion: { s, kind in store.apply(store.engine.add(store.board, channel: s.channel, why: s.why, kind: kind).0) },
-                             onInbox: { it in store.apply(store.engine.takeInbox(store.board, item: it, title: GrowthWords.inboxTitle(it))); store.notice = t("growth.inbox.taken") })
+                             onInbox: { it in store.apply(store.engine.takeInbox(store.board, item: it, title: GrowthWords.inboxTitle(it))); store.notice = t("growth.inbox.taken") },
+                             onProspect: { openProspect = OpenPID(id: $0) })
                     .id((store.sharedId ?? projects.currentId ?? 0).description + (store.data?.current?.description ?? "d"))
             } else if store.loading {
                 ProgressView().tint(Color.slAccent600).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,6 +76,7 @@ struct GrowthScreen: View {
             if let c = store.cards.first(where: { $0.id == o.id }) { GrowthCardSheet(store: store, card: c, readonly: locked, unlock: unlock) }
         }
         .sheet(item: $openSticky) { o in if store.stickies.contains(where: { $0.id == o.id }) { GrowthStickySheet(store: store, id: o.id) { openCard = OpenID(id: $0) } } }
+        .sheet(item: $openProspect) { o in ProspectSheet(store: store, id: o.id) }
         .sheet(isPresented: $budgetOpen) { BudgetSheet(budget: store.budget) { b in Task { await store.setBudget(b) } } }
         .animation(.snappy, value: store.notice)
     }
@@ -127,6 +131,7 @@ struct GrowthScreen: View {
                     if store.hasPlan, store.data?.current != nil { Button { Task { await store.revise() } } label: { Label(t("growth.revise"), systemImage: "arrow.triangle.2.circlepath") } }
                     Button { Task { await store.make() } } label: { Label(store.hasPlan ? t("growth.remake") : t("growth.make"), systemImage: "map") }
                 }
+                if !locked, store.data?.team?.role != "member" { Button { openURL(URL(string: "https://seenlab.io/app/growth?measure=1")!) } label: { Label(t("growth.measure.title"), systemImage: "chart.bar.xaxis") } }
                 Button { openURL(URL(string: "https://seenlab.io/app/growth")!) } label: { Label(t("ios.openWeb"), systemImage: "safari") }
                 if locked { Button { unlock() } label: { Label(t("growth.locked.cta"), systemImage: "lock.open") } }
             } label: {

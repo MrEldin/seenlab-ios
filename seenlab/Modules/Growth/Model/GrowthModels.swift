@@ -29,8 +29,11 @@ struct GrowthData: Decodable {
     var generatedAt: String?
     var defaultBudget: Int?
     var job: GrowthJob?
+    var attribution: [String: Measured]
+    var benchmarks: [String: Benchmark]
+    var outreach: [Prospect]
 
-    enum CodingKeys: String, CodingKey { case plan, state, current, maps, directory, evidence, results, experiments, inbox, rivals, team, job
+    enum CodingKeys: String, CodingKey { case plan, state, current, maps, directory, evidence, results, experiments, inbox, rivals, team, job, attribution, benchmarks, outreach
         case quickRuns = "quick_runs", generatedAt = "generated_at", defaultBudget = "default_budget" }
 
     init(from d: Decoder) throws {
@@ -50,7 +53,81 @@ struct GrowthData: Decodable {
         generatedAt = try? c.decodeIfPresent(String.self, forKey: .generatedAt)
         defaultBudget = try? c.decodeIfPresent(Int.self, forKey: .defaultBudget)
         job = try? c.decodeIfPresent(GrowthJob.self, forKey: .job)
+        // an empty PHP map arrives as [] — read as nothing measured yet
+        attribution = (try? c.decode([String: Measured].self, forKey: .attribution)) ?? [:]
+        benchmarks = (try? c.decode([String: Benchmark].self, forKey: .benchmarks)) ?? [:]
+        outreach = (try? c.decode([Prospect].self, forKey: .outreach)) ?? []
     }
+}
+
+/// What a card's link brought: clicks always, visits / sign-ups / installs when the site script, Google Analytics,
+/// Apple or the Android app counted them ("from" names who).
+struct Measured: Decodable {
+    var code: String
+    var url: String
+    var clicks: Int
+    var visits: Int?
+    var signups: Int?
+    var installs: Int?
+    var revenue: Num?
+    var from: [String]
+    enum CodingKeys: String, CodingKey { case code, url, clicks, visits, signups, installs, revenue, from }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        code = try c.decode(String.self, forKey: .code); url = try c.decode(String.self, forKey: .url)
+        clicks = (try? c.decode(Int.self, forKey: .clicks)) ?? 0
+        visits = try? c.decodeIfPresent(Int.self, forKey: .visits); signups = try? c.decodeIfPresent(Int.self, forKey: .signups)
+        installs = try? c.decodeIfPresent(Int.self, forKey: .installs); revenue = try? c.decodeIfPresent(Num.self, forKey: .revenue)
+        from = (try? c.decode([String].self, forKey: .from)) ?? []
+    }
+}
+
+/// What a channel brought similar products (medians, only from 10 or more of them).
+struct Benchmark: Decodable {
+    var n: Int; var clicks: Num?; var results: Num?; var kind: String; var costPer: Num?; var paidN: Int?; var paidOk: Int?; var shareGood: Int?; var good: Int?; var scope: String
+    enum CodingKeys: String, CodingKey { case n, clicks, results, kind, good, scope; case costPer = "cost_per", paidN = "paid_n", paidOk = "paid_ok", shareGood = "share_good" }
+    /// A paid step that rarely paid back for similar products.
+    var warns: Bool { guard let pn = paidN, pn >= 3 else { return false }; return Double(paidOk ?? 0) / Double(pn) < 0.4 }
+}
+
+/// A page AI assistants cite when they recommend rivals: who wrote it, the message for it, where it stands.
+struct Prospect: Decodable, Identifiable {
+    struct Contact: Decodable { var author: String?; var emails: [String]?; var twitter: String?; var linkedin: String?; var form: String? }
+    struct Draft: Decodable {
+        struct Mail: Decodable { var subject: String?; var body: String? }
+        var summary: String?; var steps: [String]?; var email: Mail?; var reply: String?; var listing: String?
+    }
+    struct Effect: Decodable { var before: Int?; var after: Int?; var days: Int? }
+    var id: Int
+    var url: String
+    var host: String
+    var title: String?
+    var kind: String
+    var answers: Int
+    var engines: [String]
+    var rivals: [String]
+    var contact: Contact?
+    var draft: Draft?
+    var status: String
+    var note: String?
+    var sentAt: String?
+    var readAt: String?
+    var followUp: Bool
+    var effect: Effect?
+    enum CodingKeys: String, CodingKey { case id, url, host, title, kind, answers, engines, rivals, contact, draft, status, note, effect; case sentAt = "sent_at", readAt = "read_at", followUp = "follow_up" }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id); url = try c.decode(String.self, forKey: .url); host = (try? c.decode(String.self, forKey: .host)) ?? ""
+        title = try? c.decodeIfPresent(String.self, forKey: .title); kind = (try? c.decode(String.self, forKey: .kind)) ?? "article"
+        answers = (try? c.decode(Int.self, forKey: .answers)) ?? 0; engines = (try? c.decode([String].self, forKey: .engines)) ?? []
+        rivals = (try? c.decode([String].self, forKey: .rivals)) ?? []; contact = try? c.decodeIfPresent(Contact.self, forKey: .contact)
+        draft = try? c.decodeIfPresent(Draft.self, forKey: .draft); status = (try? c.decode(String.self, forKey: .status)) ?? "todo"
+        note = try? c.decodeIfPresent(String.self, forKey: .note); sentAt = try? c.decodeIfPresent(String.self, forKey: .sentAt)
+        readAt = try? c.decodeIfPresent(String.self, forKey: .readAt); followUp = (try? c.decode(Bool.self, forKey: .followUp)) ?? false
+        effect = try? c.decodeIfPresent(Effect.self, forKey: .effect)
+    }
+    var shownTitle: String { title?.isEmpty == false ? title! : url.replacingOccurrences(of: #"^https?://(www\.)?"#, with: "", options: .regularExpression) }
+    var hasContact: Bool { !(contact?.emails ?? []).isEmpty || contact?.twitter != nil || contact?.linkedin != nil || contact?.form != nil || contact?.author != nil }
 }
 
 struct QuickRuns: Decodable { var used: Int?; var limit: Int? }

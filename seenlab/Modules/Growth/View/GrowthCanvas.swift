@@ -22,6 +22,7 @@ enum BG {
     static let weekW = cardW + 64
     static let noteW: CGFloat = 220, noteH: CGFloat = 132
     static let inboxW = cardW + framePad * 2 + 150, inboxH: CGFloat = 196
+    static let prosH: CGFloat = 184
     static func colX(_ i: Int) -> CGFloat { pad + framePad + CGFloat(i) * colStep }
 }
 
@@ -38,6 +39,7 @@ struct GrowthCanvas: View {
     var onSticky: (String) -> Void
     var onSuggestion: (BoardSuggestion, String) -> Void
     var onInbox: (InboxItem) -> Void
+    var onProspect: (Int) -> Void = { _ in }
 
     @State private var offset: CGSize = .zero
     @State private var panBase: CGSize = .zero
@@ -85,9 +87,13 @@ struct GrowthCanvas: View {
     private var showInbox: Bool { !timed && lens != .status && !readonly && !store.inbox.isEmpty }
     private var inboxX: CGFloat { BG.pad + BG.framePad - BG.inboxW }
     private var minX: CGFloat { showInbox ? inboxX - BG.framePad - 8 : 0 }
+    // the pages worth being on, a lane after the last column (map lens only)
+    private var showLists: Bool { lens == .map && !readonly && !store.prospects.isEmpty }
+    private var listsX: CGFloat { BG.colX(max(4, columns.count)) }
+    private var listsBottom: CGFloat { BG.top + CGFloat(store.prospects.count) * (BG.prosH + BG.gapY) - BG.gapY }
     private func boardSize(_ bottom: CGFloat, weeks: Int) -> CGSize {
-        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * 4 - BG.gapX
-        var s = CGSize(width: w - minX, height: max(bottom, showInbox ? BG.top + CGFloat(store.inbox.count) * (BG.inboxH + BG.gapY) : 0) + BG.framePad + BG.pad)
+        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(showLists ? max(4, columns.count) + 1 : 4) - BG.gapX
+        var s = CGSize(width: w - minX, height: max(bottom, showInbox ? BG.top + CGFloat(store.inbox.count) * (BG.inboxH + BG.gapY) : 0, showLists ? listsBottom : 0) + BG.framePad + BG.pad)
         for n in store.stickies { s.width = max(s.width, n.x + BG.noteW + BG.pad - minX); s.height = max(s.height, n.y + BG.noteH + BG.pad) }
         return s
     }
@@ -171,6 +177,7 @@ struct GrowthCanvas: View {
             BoardLines(columns: columns, placed: p.cards, stickies: store.stickies, links: store.links, frames: timed ? [] : store.frames, bottom: p.bottom, timed: timed, dx: -minX, inbox: showInbox ? store.inbox.count : 0, inboxX: inboxX)
             headsLayer(p)
             inboxLayer
+            listsLayer
             sugLayer(p)
             cardsLayer(p)
             stickiesLayer
@@ -207,6 +214,21 @@ struct GrowthCanvas: View {
         }
     }
 
+    @ViewBuilder private var listsLayer: some View {
+        if showLists {
+            let x = listsX - minX
+            RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.slGoodSoft.opacity(0.35))
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.slGood.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])))
+                .frame(width: BG.cardW + BG.framePad * 2, height: listsBottom - BG.top + BG.framePad * 2).offset(x: x - BG.framePad, y: BG.top - BG.framePad)
+            ColumnHead(kind: "lists", title: t("growth.lists.title"), note: t("growth.lists.note")).frame(width: BG.cardW, height: 190, alignment: .bottomLeading).offset(x: x, y: BG.top - BG.framePad - 10 - 190)
+            ForEach(Array(store.prospects.enumerated()), id: \.element.id) { i, pr in
+                ProspectTile(p: pr).frame(width: BG.cardW, height: BG.prosH).offset(x: x, y: BG.top + CGFloat(i) * (BG.prosH + BG.gapY))
+                    .accessibilityElement(children: .combine).accessibilityIdentifier("prospect-\(pr.id)")
+                    .onTapGesture { onProspect(pr.id) }
+            }
+        }
+    }
+
     private func sugLayer(_ p: Placed) -> some View {
         ForEach(p.sugs) { s in
             SuggestionCard(sug: s.sug, onAdd: { onSuggestion(s.sug, s.kind) }, onDismiss: { store.apply(store.engine.dismiss(store.board, channel: s.sug.channel)) })
@@ -222,7 +244,7 @@ struct GrowthCanvas: View {
     private func cardView(_ pc: PlacedCard, heat: Double?) -> some View {
         let c = pc.card
         let owner = store.data?.team?.people.first { $0.id == c.owner }
-        return CardTile(card: c, status: status(c.id), mark: marks[c.id], lens: lens, late: late(c), heat: heat, experiment: store.data?.experiments[c.id], owner: owner, comments: store.comments(for: c.id).count, lateBy: max(1, (nowWeek ?? c.week) - c.week))
+        return CardTile(card: c, status: status(c.id), mark: marks[c.id], lens: lens, late: late(c), heat: heat, experiment: store.data?.experiments[c.id], owner: owner, comments: store.comments(for: c.id).count, lateBy: max(1, (nowWeek ?? c.week) - c.week), measured: readonly ? nil : store.attribution[c.id], bench: readonly ? nil : store.benchmark(c.channel))
             .frame(width: BG.cardW, height: BG.cardH)
             .opacity(held?.id == c.id ? 0.25 : 1)
             .offset(x: pc.x - minX, y: pc.y)
@@ -342,10 +364,10 @@ struct DotGrid: View {
 
 struct ColumnHead: View {
     var kind: String; var title: String; var note: String
-    private var color: Color { ["fix": .slWarn, "free": .slAccent600, "paid": .slInk, "scale": .slMarker, "inbox": .slAccent800][kind] ?? .slInk }
+    private var color: Color { ["fix": .slWarn, "free": .slAccent600, "paid": .slInk, "scale": .slMarker, "inbox": .slAccent800, "lists": .slGood][kind] ?? .slInk }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(kind == "inbox" ? t("growth.inbox.kind").uppercased() : t("growth.phase." + kind).uppercased())
+            Text(kind == "inbox" ? t("growth.inbox.kind").uppercased() : kind == "lists" ? t("growth.lists.kind").uppercased() : t("growth.phase." + kind).uppercased())
                 .font(.dm(10.5, .heavy)).tracking(1.2).foregroundStyle(kind == "scale" ? Color.slInk : .white)
                 .padding(.horizontal, 9).padding(.vertical, 4).background(color, in: Capsule())
             Text(title.isEmpty ? t("growth.board.phaseDefault." + kind) : title).font(.hand(30)).foregroundStyle(Color.slInk).lineLimit(2)
@@ -357,6 +379,8 @@ struct ColumnHead: View {
 struct CardTile: View {
     var card: BoardCard; var status: String; var mark: Mark?; var lens: GrowthLens; var late: Bool; var heat: Double?; var experiment: Experiment?; var owner: Person?; var comments: Int
     var lateBy: Int = 1
+    var measured: Measured? = nil
+    var bench: Benchmark? = nil
 
     /// The status lens: where the step stands, in one word and one colour.
     private var stKey: String { late && status == "todo" ? "late" : status }
@@ -384,10 +408,17 @@ struct CardTile: View {
             HStack(spacing: 8) {
                 Text(card.cost > 0 ? "$" + Fmt.int(card.cost) : t("growth.node.free")).font(.dm(12.5, .heavy))
                     .padding(.horizontal, 7).padding(.vertical, 1).background(card.cost > 0 ? Color.slMarker.opacity(0.5) : Color.slTint100, in: RoundedRectangle(cornerRadius: 6))
-                if let v = mark?.signups ?? mark?.visitors {
+                if let m = measured, m.clicks > 0, lens != .result {
+                    measuredText(m)
+                } else if let v = mark?.signups ?? mark?.visitors {
                     Text("\(Fmt.int(v)) " + (mark?.signups != nil ? t("growth.panel.signupsShort") : t("growth.panel.visitorsShort"))).font(.dm(11.5, .semibold)).foregroundStyle(Color.slInk)
                 } else {
                     Label(t("growth.node.hours", ["n": Fmt.int(card.effortHours)]), systemImage: "clock").font(.dm(12)).foregroundStyle(Color.slInkMuted).labelStyle(.titleAndIcon)
+                }
+                if let b = bench, let r = b.results, status != "done", (measured?.clicks ?? 0) == 0 {
+                    let warn = card.cost > 0 && b.warns
+                    Label(t("growth.bench.chip", ["n": Fmt.int(r)]), systemImage: warn ? "exclamationmark.triangle" : "person.2").font(.dm(10.5, .semibold)).lineLimit(1).fixedSize()
+                        .padding(.horizontal, 7).padding(.vertical, 2).foregroundStyle(warn ? Color.slWarn : Color.slInkMuted).background(warn ? Color.slWarnSoft : Color.slPaper, in: Capsule())
                 }
                 Spacer(minLength: 0)
                 if let e = experiment { TestPill(e: e) }
@@ -411,6 +442,49 @@ struct CardTile: View {
         }
         .opacity(dim ? 0.45 : 1)
         .shadow(color: Color.slInk.opacity(0.08), radius: 12, y: 8)
+    }
+}
+
+extension CardTile {
+    /// "378 clicks · 42 accounts": what the card's own link brought.
+    fileprivate func measuredText(_ m: Measured) -> some View {
+        let more = m.signups.map { " · \(Fmt.int(Double($0))) " + t("growth.panel.signupsShort") } ?? m.installs.map { " · \(Fmt.int(Double($0))) " + t("growth.measure.installsShort") } ?? ""
+        return Text("\(Fmt.int(Double(m.clicks))) " + t("growth.measure.clicksShort") + more).font(.dm(11.5, .semibold)).foregroundStyle(Color.slInk).lineLimit(1)
+    }
+}
+
+/// A page worth being on, in the lists lane: whose list it is, why it matters, where it stands.
+struct ProspectTile: View {
+    var p: Prospect
+    private var stColor: Color { p.followUp ? .slBad : ["sent": .slAccent600, "replied": .slMarker, "listed": .slGood, "declined": .slLineStrong][p.status] ?? .slInkMuted }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(p.host).font(.dm(11.5, .semibold)).foregroundStyle(Color.slInkMuted).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(p.followUp ? t("growth.lists.nudge") : t("growth.lists.st." + p.status)).font(.dm(10.5, .heavy)).textCase(.uppercase)
+                    .foregroundStyle(p.status == "todo" && !p.followUp ? Color.slInkSoft : .white).padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(p.status == "todo" && !p.followUp ? Color.slPaper : stColor, in: Capsule())
+            }
+            Text(p.shownTitle).font(.dm(15.5, .bold)).foregroundStyle(Color.slInk).lineLimit(2)
+            Text(t("growth.lists.cited", ["n": p.answers, "engines": p.engines.count]) + (p.rivals.isEmpty ? "" : " · " + t("growth.lists.names", ["rivals": p.rivals.prefix(3).joined(separator: ", ")])))
+                .font(.dm(12)).foregroundStyle(Color.slInkSoft).lineLimit(2)
+            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                if p.hasContact {
+                    Label(p.contact?.author ?? t("growth.lists.contact"), systemImage: "person.crop.circle.badge.checkmark").font(.dm(11.5, .semibold)).foregroundStyle(Color.slAccent700).lineLimit(1)
+                } else {
+                    Text(p.readAt != nil ? t("growth.lists.noContact") : t("growth.lists.notRead")).font(.dm(11.5)).foregroundStyle(Color.slInkMuted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if let e = p.effect, let a = e.after, (e.days ?? 0) >= 7 { Text("AI \(e.before.map(String.init) ?? "—")% → \(a)%").font(.dm(11, .heavy)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 2).background(Color.slGood, in: Capsule()) }
+                else if p.draft != nil { Label(t("growth.lists.hasDraft"), systemImage: "envelope").font(.dm(11)).foregroundStyle(Color.slInkMuted).lineLimit(1) }
+            }
+        }
+        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
+        .background(p.status == "listed" ? Color.slGoodSoft : .white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(p.followUp ? Color.slBad.opacity(0.6) : p.status == "listed" ? Color.slGood.opacity(0.6) : Color.slLine, lineWidth: 1.5))
+        .shadow(color: Color.slInk.opacity(0.07), radius: 12, y: 8)
     }
 }
 

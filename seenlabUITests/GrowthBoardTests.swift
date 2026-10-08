@@ -63,4 +63,41 @@ final class GrowthBoardTests: XCTestCase {
         el("lens-map").tap()
         Thread.sleep(forTimeInterval: 2.5)   // the save runs a moment after the last edit
     }
+
+    /// The card's link and what it brought, similar products, and a page worth being on worked from the phone.
+    func testMeasuringAndLists() {
+        let ph = el("card-ph")
+        XCTAssertTrue(ph.waitForExistence(timeout: 15), "the board did not open")
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'klikova'")).count > 0, "the card does not show its clicks")
+        // bring the launch card into view: move the board left
+        let canvas = el("growth-canvas")
+        canvas.swipeLeft(velocity: .slow)
+        Thread.sleep(forTimeInterval: 1)
+        if !ph.isHittable { canvas.pinch(withScale: 0.6, velocity: -1); Thread.sleep(forTimeInterval: 1) }
+        ph.tap()
+        XCTAssertTrue(el("sheet-close").waitForExistence(timeout: 5), "the card did not open")
+        app.swipeUp()
+        XCTAssertTrue(app.staticTexts["Link ove kartice"].waitForExistence(timeout: 3), "no link section")
+        XCTAssertFalse(el("make-link").exists, "the card already has a link")
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Slični proizvodi'")).count > 0 || app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'slični proizvodi'")).count > 0, "no benchmark")
+        shot("card-measured")
+        el("sheet-close").tap()
+        Thread.sleep(forTimeInterval: 1)
+
+        // zoom out to the lists lane and open a page
+        el("growth-canvas").pinch(withScale: 0.35, velocity: -1)
+        Thread.sleep(forTimeInterval: 1)
+        let pros = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'prospect-'")).firstMatch
+        XCTAssertTrue(pros.waitForExistence(timeout: 5), "no lists lane")
+        for _ in 0..<10 where pros.frame.midX > app.frame.width - 30 || pros.frame.midY > app.frame.height - 140 { el("growth-canvas").swipeLeft(velocity: .slow); Thread.sleep(forTimeInterval: 0.6) }
+        shot("lists-lane")
+        pros.tap()
+        XCTAssertTrue(el("prospect-read").waitForExistence(timeout: 5), "the page did not open")
+        shot("prospect")
+        app.swipeUp()
+        el("prospect-st-replied").tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        shot("prospect-replied")
+        el("sheet-close").tap()
+    }
 }
