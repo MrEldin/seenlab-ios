@@ -15,6 +15,8 @@ struct GrowthScreen: View {
     @EnvironmentObject private var auth: AuthStore
     @Environment(\.openURL) private var openURL
     @StateObject private var real = GrowthStore()
+    @ObservedObject private var notices = NoticeStore.shared
+    @Environment(\.scenePhase) private var phase
     @StateObject private var sample = GrowthStore()
     private var store: GrowthStore { locked ? sample : real }
     @State private var lens: GrowthLens = .map
@@ -47,7 +49,11 @@ struct GrowthScreen: View {
                 ErrorCard(message: e) { Task { await store.load(project: projects.currentId) } }.padding(20).padding(.top, 80)
             }
 
-            header.padding(.horizontal, 12).padding(.top, 6)
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if !othersHere.isEmpty { hereStrip }
+            }
+            .padding(.horizontal, 12).padding(.top, 6)
 
             if showStart {
                 StartCard(budget: $real.budget, app: boardName, busy: store.running, onMake: { Task { await store.make() } }, onBlank: { blank = true })
@@ -72,6 +78,20 @@ struct GrowthScreen: View {
         .task(id: projects.currentId) { await real.load(project: projects.currentId) }
         .task(id: locked) { if locked { sample.loadSample() } }
         .task { while !Task.isCancelled { try? await Task.sleep(for: .seconds(15)); await real.refreshIfShared() } }
+        // the socket: only while the board is on screen and the app is in front
+        .onDisappear { real.stopLive() }
+        .onChange(of: phase) { _, p in
+            if p == .active, real.data != nil { Task { await real.load(project: projects.currentId, map: real.data?.current, quiet: true) } } else if p == .background { real.stopLive() }
+        }
+        // a notice about this board: the right board, then the card
+        .onReceive(notices.$route) { r in
+            guard let r, r.channel == .growth else { return }
+            notices.route = nil
+            Task {
+                if r.board != real.sharedId { await real.openShared(r.board) }
+                if let c = r.card { try? await Task.sleep(for: .milliseconds(300)); openCard = OpenID(id: c) }
+            }
+        }
         .sheet(item: $openCard) { o in
             if let c = store.cards.first(where: { $0.id == o.id }) { GrowthCardSheet(store: store, card: c, readonly: locked, unlock: unlock) }
         }
@@ -79,6 +99,25 @@ struct GrowthScreen: View {
         .sheet(item: $openProspect) { o in ProspectSheet(store: store, id: o.id) }
         .sheet(isPresented: $budgetOpen) { BudgetSheet(budget: store.budget) { b in Task { await store.setBudget(b) } } }
         .animation(.snappy, value: store.notice)
+    }
+
+    /// The others on the board right now (the socket's presence), not me.
+    private var othersHere: [Person] { (real.data?.team?.people ?? []).filter { real.here.contains($0.id) && $0.id != real.data?.team?.me } }
+
+    private var hereStrip: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: -6) {
+                ForEach(othersHere.prefix(4)) { p in
+                    Text(p.initials).font(.dm(10, .heavy)).foregroundStyle(.white).frame(width: 24, height: 24)
+                        .background(Color(hex: p.color), in: Circle()).overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+            Circle().fill(Color.slGood).frame(width: 7, height: 7)
+            Text(t("notify.ios.here", ["names": othersHere.map { $0.name.components(separatedBy: " ").first ?? "" }.joined(separator: ", ")])).font(.dm(12, .semibold)).foregroundStyle(Color.slInkSoft).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(.white.opacity(0.95), in: Capsule()).overlay(Capsule().stroke(Color.slLine))
+        .accessibilityIdentifier("growth-here")
     }
 
     private var boardName: String { store.sharedId.flatMap { id in store.shared.first { $0.appId == id }?.name } ?? projects.current?.name ?? "" }
@@ -126,6 +165,7 @@ struct GrowthScreen: View {
                 }
                 .disabled(store.running).accessibilityLabel(store.hasPlan ? t("growth.remake") : t("growth.make"))
             }
+            if !locked { NotificationBell(size: 34) }
             Menu {
                 if !locked {
                     if store.hasPlan, store.data?.current != nil { Button { Task { await store.revise() } } label: { Label(t("growth.revise"), systemImage: "arrow.triangle.2.circlepath") } }

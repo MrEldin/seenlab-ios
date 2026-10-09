@@ -14,6 +14,9 @@ struct MainView: View {
     @EnvironmentObject private var projects: ProjectStore
     @EnvironmentObject private var auth: AuthStore
     @SceneStorage("tab") private var tab: Channel = .aso
+    @ObservedObject private var notices = NoticeStore.shared
+    @Environment(\.scenePhase) private var phase
+    @State private var listOpen = false
 
     /// The channels the plan includes, in tab order. Until the user is loaded, all of them.
     private var channels: [Channel] {
@@ -49,6 +52,18 @@ struct MainView: View {
         .onAppear { if let t = UserDefaults.standard.string(forKey: "startTab"), let c = Channel(rawValue: t) { tab = c } }
         #endif
         .task { if auth.user == nil { await auth.loadUser() } }
+        // notifications: ask once, register this phone, the bell's count (and the icon badge) on every return
+        .task { await PushManager.shared.start(); await notices.refreshCount() }
+        .onChange(of: phase) { _, p in if p == .active { Task { await notices.refreshCount() } } }
+        // a tapped notice or push: its project, then its tab (the board opens the card itself)
+        .onReceive(notices.$route) { r in
+            guard let r else { return }
+            if let p = r.projectId, r.board == nil, projects.projects.contains(where: { $0.id == p }) { projects.select(p) }
+            if r.showList { listOpen = true; notices.route = nil; return }
+            open(r.channel)
+            if r.channel != .growth { notices.route = nil }
+        }
+        .sheet(isPresented: $listOpen) { NoticesSheet() }
         .onChange(of: channels, initial: true) { _, available in
             // The remembered tab may belong to a channel this plan no longer includes.
             if !available.contains(tab), tab != .settings, tab != .growth { tab = available.first ?? .settings }

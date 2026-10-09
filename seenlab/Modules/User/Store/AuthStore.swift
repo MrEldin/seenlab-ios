@@ -57,6 +57,7 @@ final class AuthStore: ObservableObject {
     }
 
     func logout() async {
+        await PushManager.shared.signOut()   // this phone stops getting the account's pushes
         _ = try? await NetworkManager.shared.request(SeenlabAPI.logout, as: JSONValue.self)
         endSession(nil)
     }

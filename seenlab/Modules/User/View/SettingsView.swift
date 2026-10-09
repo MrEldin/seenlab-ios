@@ -34,6 +34,8 @@ struct SettingsView: View {
                     }
                 }
 
+                NoticeSettingsSection()
+
                 section(t("ios.settings.language")) {
                     RowList(items: languages) { lang in
                         Button { auth.setLanguage(lang.0) } label: {

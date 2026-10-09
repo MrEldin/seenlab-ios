@@ -41,6 +41,7 @@ struct ChannelNav<Content: View>: View {
                 .background(Color.slBg)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { ProjectMenu() }
+                    ToolbarItem(placement: .topBarTrailing) { NotificationBell() }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { kbChapter = KBStart(chapter: nil) } label: { Image(systemName: "book.pages") }
                             .accessibilityLabel(t("kb.open"))

@@ -32,8 +32,10 @@ struct GrowthData: Decodable {
     var attribution: [String: Measured]
     var benchmarks: [String: Benchmark]
     var outreach: [Prospect]
+    /// The board's socket (Reverb): nil when live updates are off on the server.
+    var live: LiveSocket.Config?
 
-    enum CodingKeys: String, CodingKey { case plan, state, current, maps, directory, evidence, results, experiments, inbox, rivals, team, job, attribution, benchmarks, outreach
+    enum CodingKeys: String, CodingKey { case plan, state, current, maps, directory, evidence, results, experiments, inbox, rivals, team, job, attribution, benchmarks, outreach, live
         case quickRuns = "quick_runs", generatedAt = "generated_at", defaultBudget = "default_budget" }
 
     init(from d: Decoder) throws {
@@ -57,6 +59,7 @@ struct GrowthData: Decodable {
         attribution = (try? c.decode([String: Measured].self, forKey: .attribution)) ?? [:]
         benchmarks = (try? c.decode([String: Benchmark].self, forKey: .benchmarks)) ?? [:]
         outreach = (try? c.decode([Prospect].self, forKey: .outreach)) ?? []
+        live = try? c.decodeIfPresent(LiveSocket.Config.self, forKey: .live)
     }
 }
 

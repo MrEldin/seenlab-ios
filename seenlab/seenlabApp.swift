@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct seenlabApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var auth: AuthStore
     @StateObject private var projects = ProjectStore()
     @StateObject private var l10n = L10n.shared
@@ -60,6 +61,6 @@ struct ContentView: View {
             if auth.isSignedIn { MainView() } else { LoginView() }
         }
         .id(l10n.locale)   // strings are read at render time; a new language redraws everything
-        .onChange(of: auth.isSignedIn) { _, signedIn in if !signedIn { projects.reset() } }
+        .onChange(of: auth.isSignedIn) { _, signedIn in if !signedIn { projects.reset(); NoticeStore.shared.reset() } }
     }
 }

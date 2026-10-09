@@ -95,4 +95,19 @@ enum SeenlabAPI {
         return APIRoute(path: "/admin/growth/" + path, method: method, query: q, body: body, scoped: board == nil)
     }
     static let growthShared = APIRoute(path: "/admin/growth/shared")
+
+    // Notifications: the list, marks, what to push, the devices that get pushes
+    static func notifications(unread: Bool = false, before: String? = nil) -> APIRoute {
+        var q = ["limit": "30"]
+        if unread { q["filter"] = "unread" }
+        if let before { q["before"] = before }
+        return APIRoute(path: "/admin/notifications", query: q)
+    }
+    static func noticeRead(_ id: String) -> APIRoute { APIRoute(path: "/admin/notifications/\(id)/read", method: .POST) }
+    static let noticesReadAll = APIRoute(path: "/admin/notifications/read", method: .POST)
+    static let noticeTest = APIRoute(path: "/admin/notifications/test", method: .POST)
+    static let noticeSettings = APIRoute(path: "/admin/notifications/settings")
+    static func saveNoticeSettings(_ prefs: [String: Any]) -> APIRoute { APIRoute(path: "/admin/notifications/settings", method: .PUT, body: ["prefs": prefs]) }
+    static func addDevice(token: String, env: String, label: String) -> APIRoute { APIRoute(path: "/admin/notifications/devices", method: .POST, body: ["kind": "ios", "token": token, "env": env, "label": label]) }
+    static func removeDevice(token: String) -> APIRoute { APIRoute(path: "/admin/notifications/devices/remove", method: .POST, body: ["token": token]) }
 }

@@ -24,6 +24,11 @@ final class GrowthStore: ObservableObject {
     @Published var sharedId: Int?                              // nil = my project's board
     @Published var budget: Int = 1000
     @Published private(set) var canUndo = false
+    /// Live (socket): who else is on the board right now, and whether the socket is up.
+    @Published private(set) var here: Set<Int> = []
+    @Published private(set) var live = false
+    private let socket = LiveSocket()
+    private var liveReload: Task<Void, Never>?
 
     private var undo: [BoardState?] = []
     private var rev = 0
@@ -77,6 +82,7 @@ final class GrowthStore: ObservableObject {
             budget = d.state.budget ?? d.defaultBudget ?? 1000
             if !quiet { undo = []; canUndo = false }
             if let j = d.job, ["pending", "running"].contains(j.status) { job = j; follow(j.id) { [weak self] in await self?.load(project: project) } }
+            startLive()
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? t("ios.loadFailed")
         }
@@ -306,7 +312,37 @@ final class GrowthStore: ObservableObject {
 
     /// Someone else may be on the board: catch up with their changes (not in the middle of mine).
     func refreshIfShared() async {
-        guard (data?.team?.people.count ?? 0) > 1, !saving else { return }
+        // with the socket up, a change arrives the moment it is saved; the timer is only the fallback
+        guard !live, (data?.team?.people.count ?? 0) > 1, !saving else { return }
         await load(project: projectId, map: data?.current, quiet: true)
+    }
+
+    // MARK: live
+
+    /// Joins the board's socket (the same one the web uses): a colleague's save reloads this board at once.
+    func startLive() {
+        guard let cfg = data?.live, let id = sharedId ?? projectId else { return }
+        socket.onState = { [weak self] on in self?.live = on }
+        socket.onMembers = { [weak self] ids in self?.here = ids }
+        socket.onEvent = { [weak self] event, d in if event == "changed" { self?.remoteChanged(d) } }
+        socket.start(cfg, channel: "growth.\(id)")
+    }
+
+    func stopLive() { socket.stop(); here = []; live = false }
+
+    private func remoteChanged(_ d: [String: Any]) {
+        let by = d["by"] as? Int, map = d["map"] as? Int, what = d["what"] as? String, newRev = d["rev"] as? Int
+        if by != nil, by == data?.team?.me { return }
+        if map != data?.current { return }
+        // in the middle of my own edit: my save merges with theirs (or the next refresh catches up)
+        if saving { return }
+        if what == "board", newRev == rev { return }
+        liveReload?.cancel()
+        liveReload = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard let self, !Task.isCancelled else { return }
+            if what == "board", let p = self.data?.team?.people.first(where: { $0.id == by }) { self.notice = t("growth.team.updated", ["name": p.name.components(separatedBy: " ").first ?? ""]) }
+            await self.load(project: self.projectId, map: self.data?.current, quiet: true)
+        }
     }
 }
