@@ -309,7 +309,9 @@ struct BoardState: Codable {
     var links: [BoardLink] = []
     var frames: [BoardFrame] = []
     var inboxDone: [String] = []
-    enum CodingKeys: String, CodingKey { case order, cards, dismissed, stickies, links, frames; case inboxDone = "inbox_done" }
+    /// AI proposals moved to another column (they stay proposals there): channel → column
+    var sugAt: [String: String] = [:]
+    enum CodingKeys: String, CodingKey { case order, cards, dismissed, stickies, links, frames; case inboxDone = "inbox_done"; case sugAt = "sug_at" }
 
     init() {}
     init(from d: Decoder) throws {
@@ -321,6 +323,7 @@ struct BoardState: Codable {
         links = (try? c.decode([BoardLink].self, forKey: .links)) ?? []
         frames = (try? c.decode([BoardFrame].self, forKey: .frames)) ?? []
         inboxDone = (try? c.decode([String].self, forKey: .inboxDone)) ?? []
+        sugAt = (try? c.decode([String: String].self, forKey: .sugAt)) ?? [:]
         for k in ["fix", "free", "paid", "scale"] where order[k] == nil { order[k] = [] }
     }
 

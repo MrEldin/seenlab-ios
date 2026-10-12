@@ -103,7 +103,7 @@ struct BoardEngine {
         let dismissed = Set(b.dismissed)
         for s in plan?.suggestions ?? [] {
             guard !onBoard.contains(s.channel), !dismissed.contains(s.channel), let d = dir[s.channel] else { continue }
-            let i = cols.firstIndex { $0.kind == s.phase } ?? 1
+            let i = cols.firstIndex { $0.kind == (b.sugAt[s.channel] ?? s.phase) } ?? 1
             cols[i].suggestions.append(BoardSuggestion(channel: s.channel, name: d.name, kind: d.kind, why: s.why ?? "", cost: s.cost ?? d.cost.first ?? 0))
         }
         for r in rivals {
@@ -112,7 +112,7 @@ struct BoardEngine {
                 cols[ci].suggestions[si].rival = r
                 continue
             }
-            let i = cols.firstIndex { $0.kind == GrowthCols.phaseOf(d.kind) } ?? 1
+            let i = cols.firstIndex { $0.kind == (b.sugAt[r.channel] ?? GrowthCols.phaseOf(d.kind)) } ?? 1
             cols[i].suggestions.append(BoardSuggestion(channel: r.channel, name: d.name, kind: d.kind, why: "", cost: d.cost.first ?? 0, rival: r))
         }
         return cols
@@ -251,6 +251,7 @@ struct BoardEngine {
         for k in GrowthCols.all { for id in (iMoved ? remote.order : local.order)[k] ?? [] where !baseIds.contains(id) && !out.order.values.flatMap({ $0 }).contains(id) { out.order[k, default: []].append(id) } }
         out.dismissed = Array(Set(local.dismissed + remote.dismissed))
         out.inboxDone = Array(Set(local.inboxDone + remote.inboxDone))
+        out.sugAt = remote.sugAt.merging(local.sugAt) { _, mine in mine }
         out.stickies = list(base.stickies, local.stickies, remote.stickies)
         out.links = list(base.links, local.links, remote.links)
         out.frames = list(base.frames, local.frames, remote.frames)
