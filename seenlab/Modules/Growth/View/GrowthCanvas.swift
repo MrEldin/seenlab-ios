@@ -90,9 +90,13 @@ struct GrowthCanvas: View {
     // the pages worth being on, a lane after the last column (map lens only)
     private var showLists: Bool { lens == .map && !readonly && !store.prospects.isEmpty }
     private var listsX: CGFloat { BG.colX(max(4, columns.count)) }
-    private var listsBottom: CGFloat { BG.top + CGFloat(store.prospects.count) * (BG.prosH + BG.gapY) - BG.gapY }
+    /// More than 8 lists: columns side by side, filled evenly, instead of one long column.
+    private var listsCols: Int { max(1, Int((Double(store.prospects.count) / 8).rounded(.up))) }
+    private var listsRows: Int { max(1, Int((Double(store.prospects.count) / Double(listsCols)).rounded(.up))) }
+    private var listsW: CGFloat { CGFloat(listsCols) * BG.cardW + CGFloat(listsCols - 1) * 24 }
+    private var listsBottom: CGFloat { BG.top + CGFloat(min(listsRows, store.prospects.count)) * (BG.prosH + BG.gapY) - BG.gapY }
     private func boardSize(_ bottom: CGFloat, weeks: Int) -> CGSize {
-        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(showLists ? max(4, columns.count) + 1 : 4) - BG.gapX
+        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(showLists ? max(4, columns.count) + 1 : 4) - BG.gapX + (showLists ? listsW - BG.cardW : 0)
         var s = CGSize(width: w - minX, height: max(bottom, showInbox ? BG.top + CGFloat(store.inbox.count) * (BG.inboxH + BG.gapY) : 0, showLists ? listsBottom : 0) + BG.framePad + BG.pad)
         for n in store.stickies { s.width = max(s.width, n.x + BG.noteW + BG.pad - minX); s.height = max(s.height, n.y + BG.noteH + BG.pad) }
         return s
@@ -220,10 +224,10 @@ struct GrowthCanvas: View {
             let x = listsX - minX
             RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.slGoodSoft.opacity(0.35))
                 .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.slGood.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])))
-                .frame(width: BG.cardW + BG.framePad * 2, height: listsBottom - BG.top + BG.framePad * 2).offset(x: x - BG.framePad, y: BG.top - BG.framePad)
+                .frame(width: listsW + BG.framePad * 2, height: listsBottom - BG.top + BG.framePad * 2).offset(x: x - BG.framePad, y: BG.top - BG.framePad)
             ColumnHead(kind: "lists", title: t("growth.lists.title"), note: t("growth.lists.note")).frame(width: BG.cardW, height: 190, alignment: .bottomLeading).offset(x: x, y: BG.top - BG.framePad - 10 - 190)
             ForEach(Array(store.prospects.enumerated()), id: \.element.id) { i, pr in
-                ProspectTile(p: pr).frame(width: BG.cardW, height: BG.prosH).offset(x: x, y: BG.top + CGFloat(i) * (BG.prosH + BG.gapY))
+                ProspectTile(p: pr).frame(width: BG.cardW, height: BG.prosH).offset(x: x + CGFloat(i / listsRows) * (BG.cardW + 24), y: BG.top + CGFloat(i % listsRows) * (BG.prosH + BG.gapY))
                     .accessibilityElement(children: .combine).accessibilityIdentifier("prospect-\(pr.id)")
                     .onTapGesture { onProspect(pr.id) }
             }
