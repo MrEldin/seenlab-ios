@@ -76,9 +76,16 @@ struct GrowthCanvas: View {
         }
         for (i, col) in columns.enumerated() {
             var y = BG.top
-            for c in col.cards { cards.append(PlacedCard(card: c, kind: col.kind, x: BG.colX(i), y: y)); y += BG.cardH + BG.gapY }
+            // a column with no cards keeps its empty place at the top; cards and proposals follow in the founder's order
             if col.cards.isEmpty { y += BG.cardH + BG.gapY }
-            for s in col.suggestions where !readonly && lens != .status { sugs.append(PlacedSug(sug: s, kind: col.kind, x: BG.colX(i), y: y)); y += BG.sugH + BG.gapY }
+            for it in col.items {
+                switch it {
+                case .card(let c): cards.append(PlacedCard(card: c, kind: col.kind, x: BG.colX(i), y: y)); y += BG.cardH + BG.gapY
+                case .sug(let s):
+                    guard !readonly && lens != .status else { continue }
+                    sugs.append(PlacedSug(sug: s, kind: col.kind, x: BG.colX(i), y: y)); y += BG.sugH + BG.gapY
+                }
+            }
             bottom = max(bottom, y - BG.gapY)
         }
         return (cards, sugs, bottom, [])
@@ -368,13 +375,18 @@ struct GrowthCanvas: View {
         let cost: Double = store.cards.first { $0.id == id }?.cost ?? 0
         // "fix first" and the free path hold only what costs nothing
         if kind == "free" || kind == "fix", cost > 0 { kind = "paid" }
-        let others: [BoardCard] = (columns.first { $0.kind == kind }?.cards ?? []).filter { $0.id != id }
+        // the position among what the column shows (cards and proposals, each with its height), without the card itself
+        let col = columns.first { $0.kind == kind }
+        let others = (col?.items ?? []).filter { $0.id != id && (!readonly && lens != .status || { if case .card = $0 { return true } else { return false } }($0)) }
         var index = 0
-        for j in 0..<others.count where BG.top + CGFloat(j) * (BG.cardH + BG.gapY) + BG.cardH / 2 < topLeft.y + BG.cardH / 2 { index = j + 1 }
-        let from: BoardColumn? = columns.first { $0.cards.contains { $0.id == id } }
-        let at: Int = from?.cards.firstIndex { $0.id == id } ?? -1
-        let target = (from?.kind == kind && at < index) ? index + 1 : index
-        store.apply(store.engine.move(store.board, id: id, to: kind, index: target))
+        var y = BG.top + ((col?.cards.filter { $0.id != id }.isEmpty ?? true) ? BG.cardH + BG.gapY : 0)
+        let center = topLeft.y + BG.cardH / 2
+        for (j, it) in others.enumerated() {
+            let h: CGFloat = { if case .card = it { return BG.cardH } else { return BG.sugH } }()
+            if y + h / 2 < center { index = j + 1 }
+            y += h + BG.gapY
+        }
+        store.apply(store.engine.move(store.board, id: id, to: kind, index: index))
     }
 }
 

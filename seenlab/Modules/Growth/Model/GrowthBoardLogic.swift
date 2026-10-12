@@ -5,6 +5,8 @@
 //  The growth board's rules, the same as the web's useBoard.js: four columns (fix → free → paid → scale) of
 //  cards; the AI's map is the start, the founder's board replaces it once they move, add or remove anything.
 //  A card id is the AI node's id, `x_<channel>` for a channel added by hand, `c_<random>` for the founder's own step.
+//  An AI proposal has its place in a column's order too, as `sg_<channel>`: anywhere among the cards and the other
+//  proposals; a proposal with no place yet shows at the end of the column the AI gave it. "Add" puts the card in its place.
 //  Every edit returns a new BoardState; the store keeps an undo history and saves it.
 //
 
@@ -22,6 +24,14 @@ struct BoardColumn: Identifiable {
     var note: String
     var cards: [BoardCard]
     var suggestions: [BoardSuggestion]
+    /// cards and proposals mixed, as the column shows them
+    var items: [ColumnItem] = []
+}
+
+enum ColumnItem: Identifiable {
+    case card(BoardCard)
+    case sug(BoardSuggestion)
+    var id: String { switch self { case .card(let c): return c.id; case .sug(let s): return BoardEngine.sug + s.channel } }
 }
 
 struct BoardSuggestion: Identifiable {
@@ -37,6 +47,7 @@ struct BoardSuggestion: Identifiable {
 func rid(_ prefix: String) -> String { prefix + String(UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "").prefix(7)) }
 
 struct BoardEngine {
+    static let sug = "sg_"
     var plan: GrowthPlan?
     var directory: [DirChannel]
     var rivals: [Rival] = []
@@ -82,38 +93,60 @@ struct BoardEngine {
                          source: c.channel != nil ? "added" : "custom", owner: c.owner, test: c.test)
     }
 
-    /// The columns as drawn: cards in order (weeks filled in), and the proposals not taken or dismissed.
+    /// The columns as drawn: cards and the proposals not taken or dismissed, mixed as the founder arranged them (weeks filled in).
     func columns(_ board: BoardState?) -> [BoardColumn] {
         let b = effective(board)
         var meta: [String: Phase] = [:]
         for ph in plan?.phases ?? [] where meta[ph.kind] == nil { meta[ph.kind] = ph }
         var onBoard = Set<String>()
         var week = 1
-        var cols = GrowthCols.all.map { kind -> BoardColumn in
+        var cardsOf: [String: [BoardCard]] = [:]
+        for kind in GrowthCols.all {
             var cards: [BoardCard] = []
-            for id in b.order[kind] ?? [] {
-                guard var c = card(id, in: b) else { continue }
+            for id in b.order[kind] ?? [] where !id.hasPrefix(BoardEngine.sug) {
+                guard var c = card(id, in: b), !cards.contains(where: { $0.id == id }) else { continue }
                 if let ch = c.channel { onBoard.insert(ch) }
                 if c.week > 0 { week = max(week, c.week) } else { c.week = week }
                 cards.append(c)
             }
             if !cards.isEmpty { week += 1 }
-            return BoardColumn(kind: kind, title: meta[kind]?.title ?? "", note: meta[kind]?.note ?? "", cards: cards, suggestions: [])
+            cardsOf[kind] = cards
         }
+        // the proposals still open, and the column each goes to when it has no place yet
         let dismissed = Set(b.dismissed)
+        var live: [String: (home: String, s: BoardSuggestion)] = [:]
+        var liveOrder: [String] = []
         for s in plan?.suggestions ?? [] {
-            guard !onBoard.contains(s.channel), !dismissed.contains(s.channel), let d = dir[s.channel] else { continue }
-            let i = cols.firstIndex { $0.kind == (b.sugAt[s.channel] ?? s.phase) } ?? 1
-            cols[i].suggestions.append(BoardSuggestion(channel: s.channel, name: d.name, kind: d.kind, why: s.why ?? "", cost: s.cost ?? d.cost.first ?? 0))
+            guard !onBoard.contains(s.channel), !dismissed.contains(s.channel), live[s.channel] == nil, let d = dir[s.channel] else { continue }
+            live[s.channel] = (b.sugAt[s.channel] ?? s.phase ?? "free", BoardSuggestion(channel: s.channel, name: d.name, kind: d.kind, why: s.why ?? "", cost: s.cost ?? d.cost.first ?? 0))
+            liveOrder.append(s.channel)
         }
         for r in rivals {
             guard !onBoard.contains(r.channel), !dismissed.contains(r.channel), let d = dir[r.channel] else { continue }
-            if let ci = cols.firstIndex(where: { $0.suggestions.contains { $0.channel == r.channel } }), let si = cols[ci].suggestions.firstIndex(where: { $0.channel == r.channel }) {
-                cols[ci].suggestions[si].rival = r
-                continue
+            if live[r.channel] != nil { live[r.channel]!.s.rival = r; continue }
+            live[r.channel] = (b.sugAt[r.channel] ?? GrowthCols.phaseOf(d.kind), BoardSuggestion(channel: r.channel, name: d.name, kind: d.kind, why: "", cost: d.cost.first ?? 0, rival: r))
+            liveOrder.append(r.channel)
+        }
+        var placed = Set<String>()
+        var cols = GrowthCols.all.map { kind -> BoardColumn in
+            let byId = Dictionary((cardsOf[kind] ?? []).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            var items: [ColumnItem] = []
+            var seen = Set<String>()
+            for id in b.order[kind] ?? [] {
+                if id.hasPrefix(BoardEngine.sug) {
+                    let ch = String(id.dropFirst(BoardEngine.sug.count))
+                    if let l = live[ch], !placed.contains(ch) { placed.insert(ch); items.append(.sug(l.s)) }
+                } else if let c = byId[id], !seen.contains(id) { seen.insert(id); items.append(.card(c)) }
             }
-            let i = cols.firstIndex { $0.kind == (b.sugAt[r.channel] ?? GrowthCols.phaseOf(d.kind)) } ?? 1
-            cols[i].suggestions.append(BoardSuggestion(channel: r.channel, name: d.name, kind: d.kind, why: "", cost: d.cost.first ?? 0, rival: r))
+            return BoardColumn(kind: kind, title: meta[kind]?.title ?? "", note: meta[kind]?.note ?? "", cards: [], suggestions: [], items: items)
+        }
+        for ch in liveOrder where !placed.contains(ch) {
+            let i = cols.firstIndex { $0.kind == live[ch]!.home } ?? 1
+            cols[i].items.append(.sug(live[ch]!.s))
+        }
+        for i in cols.indices {
+            cols[i].cards = cols[i].items.compactMap { if case .card(let c) = $0 { return c } else { return nil } }
+            cols[i].suggestions = cols[i].items.compactMap { if case .sug(let s) = $0 { return s } else { return nil } }
         }
         return cols
     }
@@ -122,15 +155,30 @@ struct BoardEngine {
 
     private func strip(_ b: inout BoardState, _ id: String) { for k in GrowthCols.all { b.order[k] = (b.order[k] ?? []).filter { $0 != id } } }
 
+    /// Proposals shown without a place in the order get one where they are shown, so a position on the screen is a position in the order.
+    private func materialize(_ b: inout BoardState, from cols: [BoardColumn], skip: Set<String>) {
+        let inOrder = Set(b.order.values.flatMap { $0 })
+        for col in cols { for it in col.items { if case .sug = it, !inOrder.contains(it.id), !skip.contains(it.id) { b.order[col.kind, default: []].append(it.id) } } }
+    }
+
+    /// Puts id into a column at a position counted as the column shows it (cards and proposals, without what moves).
+    private func place(_ b: inout BoardState, kind: String, id: String, index: Int?, skip: Set<String> = []) {
+        let cols = columns(b)
+        let visual = (cols.first { $0.kind == kind }?.items ?? []).map(\.id).filter { $0 != id && !skip.contains($0) }
+        strip(&b, id)
+        materialize(&b, from: cols, skip: skip.union([id]))
+        var list = b.order[kind] ?? []
+        var at = -1
+        if let index, index < visual.count, let i = list.firstIndex(of: visual[index]) { at = i }
+        if at < 0 { at = visual.reversed().first(where: { list.contains($0) }).flatMap { list.firstIndex(of: $0) }.map { $0 + 1 } ?? list.count }
+        list.insert(id, at: max(0, min(list.count, at)))
+        b.order[kind] = list
+    }
+
+    /// index: the position among what the column shows, without the card itself.
     func move(_ b0: BoardState?, id: String, to kind: String, index: Int) -> BoardState {
         var b = effective(b0)
-        let from = GrowthCols.all.first { (b.order[$0] ?? []).contains(id) }
-        let at = from.flatMap { b.order[$0]?.firstIndex(of: id) } ?? -1
-        strip(&b, id)
-        var list = b.order[kind] ?? []
-        let i = from == kind && at < index ? index - 1 : index
-        list.insert(id, at: max(0, min(list.count, i)))
-        b.order[kind] = list
+        place(&b, kind: kind, id: id, index: index)
         return b
     }
 
@@ -140,6 +188,17 @@ struct BoardEngine {
         let id = channel.map { "x_" + $0 } ?? rid("c_")
         b.cards[id] = channel != nil ? CardOverride(channel: channel, why: why) : CardOverride(title: title, what: "")
         let col = kind ?? (channel.map { GrowthCols.phaseOf(dir[$0]?.kind) } ?? "free")
+        // a proposal taken with "Add" becomes a card right where it was
+        if let channel {
+            let sid = BoardEngine.sug + channel
+            let cols = columns(b)
+            if let ci = cols.firstIndex(where: { $0.items.contains { $0.id == sid } }), kind == nil || kind == cols[ci].kind,
+               let at = cols[ci].items.firstIndex(where: { $0.id == sid }) {
+                strip(&b, sid)
+                place(&b, kind: cols[ci].kind, id: id, index: at, skip: [sid])
+                return (b, id)
+            }
+        }
         b.order[col, default: []].append(id)
         return (b, id)
     }
@@ -161,7 +220,7 @@ struct BoardEngine {
         return b
     }
 
-    func dismiss(_ b0: BoardState?, channel: String) -> BoardState { var b = effective(b0); if !b.dismissed.contains(channel) { b.dismissed.append(channel) }; return b }
+    func dismiss(_ b0: BoardState?, channel: String) -> BoardState { var b = effective(b0); if !b.dismissed.contains(channel) { b.dismissed.append(channel) }; strip(&b, BoardEngine.sug + channel); return b }
 
     func addSticky(_ b0: BoardState?, type: String, x: Double, y: Double, text: String = "") -> (BoardState, String) {
         var b = effective(b0)
