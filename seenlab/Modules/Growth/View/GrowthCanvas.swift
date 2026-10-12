@@ -591,7 +591,7 @@ struct StickyTile: View {
                         .font(.dm(10.5, .heavy)).foregroundStyle(note.type == "risk" ? Color.slBad : note.type == "goal" ? Color.slGood : Color.slInk.opacity(0.6)).textCase(.uppercase)
                     // left by the night shift, until someone keeps it
                     if note.night != nil {
-                        Label(t("growth.night.badge"), systemImage: "moon.stars.fill").font(.dm(9.5, .heavy)).textCase(.uppercase)
+                        Label(t("growth.night.badge"), systemImage: "sparkles").font(.dm(9.5, .heavy)).textCase(.uppercase)
                             .foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Color.slInk, in: Capsule())
                     }
                 }
