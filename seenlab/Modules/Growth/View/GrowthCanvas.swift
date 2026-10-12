@@ -133,7 +133,8 @@ struct GrowthCanvas: View {
             .clipped()
             .contentShape(Rectangle())
             .gesture(panGesture.simultaneously(with: zoomGesture))
-            .onAppear { if !fitted { fit(geo.size, size); fitted = true } }
+            .onAppear { if !fitted { fit(geo.size, size); fitted = true }; placeNight() }
+            .onChange(of: store.stickies.filter { $0.auto == true }.map(\.id)) { _, _ in placeNight() }
             .onChange(of: lens) { _, _ in fit(geo.size, size) }
             .overlay(alignment: .bottomTrailing) {
                 Button { withAnimation(.snappy) { fit(geo.size, size, all: true) } } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 15, weight: .semibold)).frame(width: 40, height: 40).background(.white, in: Circle()).overlay(Circle().stroke(Color.slLine)) }
@@ -260,8 +261,34 @@ struct GrowthCanvas: View {
         }
     }
 
+    /// What the night shift pinned arrives without a place: each note goes right of its card (a note about no card,
+    /// right of the whole board), on the first free paper, and the board is saved once with them in place.
+    private func placeNight() {
+        let waiting = store.stickies.filter { $0.auto == true }
+        guard !waiting.isEmpty, !readonly, !timed else { return }
+        let cards = placed.cards.map { (id: $0.card.id, rect: CGRect(x: $0.x, y: $0.y, width: BG.cardW, height: BG.cardH)) }
+        guard !cards.isEmpty else { return }
+        let size = CGSize(width: BG.noteW + 60, height: BG.noteH + 70)
+        var taken = cards.map(\.rect) + store.stickies.filter { $0.auto != true }.map { CGRect(x: $0.x, y: $0.y, width: BG.noteW + 60, height: BG.noteH + 70) }
+        var next: BoardState? = store.board
+        for n in waiting {
+            let about = Set(store.links.filter { $0.from == n.id }.map(\.to))
+            let near = cards.filter { about.isEmpty || about.contains($0.id) }.map(\.rect)
+            let anchor = near.isEmpty ? cards.map(\.rect) : near
+            guard let right = anchor.map(\.maxX).max(), let top = anchor.map(\.minY).min() else { continue }
+            var spot = CGPoint(x: right + 36, y: top)
+            for i in 0..<16 {
+                let r = CGRect(origin: CGPoint(x: right + 36, y: top + CGFloat(i) * (size.height + 40) / 2), size: size)
+                if !taken.contains(where: { $0.insetBy(dx: -12, dy: -12).intersects(r) }) { spot = r.origin; break }
+            }
+            taken.append(CGRect(origin: spot, size: size))
+            next = store.engine.editSticky(next, id: n.id) { $0.x = Double(spot.x); $0.y = Double(spot.y); $0.auto = nil }
+        }
+        if let next { store.apply(next) }
+    }
+
     private func stickyView(_ n: Sticky) -> some View {
-        let w: CGFloat = n.type == "image" ? (n.w ?? 260) : (["answer", "coach"].contains(n.type) ? BG.noteW + 60 : BG.noteW)
+        let w: CGFloat = n.type == "image" ? (n.w ?? 260) : (["answer", "coach"].contains(n.type) || n.night != nil ? BG.noteW + 60 : BG.noteW)
         return StickyTile(note: n, busy: store.busy.contains(n.id))
             .frame(width: w)
             .opacity(held?.id == n.id || lens == .status ? 0.25 : 1)
@@ -559,12 +586,19 @@ struct StickyTile: View {
             if note.type == "image", let u = URL(string: note.url) {
                 AsyncImage(url: u) { $0.resizable().scaledToFill() } placeholder: { Color.slBg }.frame(height: note.h ?? 180).clipped()
             } else {
-                Label(t("growth.notes." + note.type), systemImage: ["idea": "lightbulb", "risk": "exclamationmark.triangle", "goal": "target", "link": "link", "answer": "sparkles", "coach": "checklist"][note.type] ?? "note.text")
-                    .font(.dm(10.5, .heavy)).foregroundStyle(note.type == "risk" ? Color.slBad : note.type == "goal" ? Color.slGood : Color.slInk.opacity(0.6)).textCase(.uppercase)
+                HStack(spacing: 8) {
+                    Label(t("growth.notes." + note.type), systemImage: ["idea": "lightbulb", "risk": "exclamationmark.triangle", "goal": "target", "link": "link", "answer": "sparkles", "coach": "checklist"][note.type] ?? "note.text")
+                        .font(.dm(10.5, .heavy)).foregroundStyle(note.type == "risk" ? Color.slBad : note.type == "goal" ? Color.slGood : Color.slInk.opacity(0.6)).textCase(.uppercase)
+                    // left by the night shift, until someone keeps it
+                    if note.night != nil {
+                        Label(t("growth.night.badge"), systemImage: "moon.stars.fill").font(.dm(9.5, .heavy)).textCase(.uppercase)
+                            .foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Color.slInk, in: Capsule())
+                    }
+                }
                 if let title = note.meta?.title { Text(title).font(.dm(13.5, .bold)).foregroundStyle(Color.slInk).lineLimit(2) }
-                if note.type == "link", !note.url.isEmpty { Text(note.meta?.site ?? Fmt.host(note.url)).font(.dm(12, .semibold)).foregroundStyle(Color.slAccent800) }
+                if note.type == "link" || note.night != nil, !note.url.isEmpty { Text(note.meta?.site ?? Fmt.host(note.url)).font(.dm(12, .semibold)).foregroundStyle(Color.slAccent800) }
                 Text(note.text.isEmpty ? t("growth.notes.empty") : note.text)
-                    .font(["answer", "coach"].contains(note.type) ? .dm(13.5, .medium) : .hand(21))
+                    .font(["answer", "coach"].contains(note.type) || note.night != nil ? .dm(13.5, .medium) : .hand(21))
                     .foregroundStyle(note.text.isEmpty ? Color.slInk.opacity(0.4) : Color.slInk)
                 if busy { Label(t("growth.ai.working"), systemImage: "sparkles").font(.dm(12, .bold)).foregroundStyle(Color.slAccent800) }
             }
@@ -572,10 +606,10 @@ struct StickyTile: View {
         .padding(note.type == "image" ? 0 : 14)
         .frame(minHeight: note.type == "image" ? nil : BG.noteH, alignment: .topLeading)
         .background(bg, in: RoundedRectangle(cornerRadius: note.type == "note" || note.type == "idea" || note.type == "risk" || note.type == "goal" ? 6 : 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(note.type == "coach" ? Color.slInk : note.type == "answer" ? Color.slAccent500 : .clear, style: StrokeStyle(lineWidth: 1.5, dash: note.type == "coach" ? [5, 4] : [])))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(note.type == "coach" || note.night != nil ? Color.slInk.opacity(note.night != nil ? 0.35 : 1) : note.type == "answer" ? Color.slAccent500 : .clear, style: StrokeStyle(lineWidth: 1.5, dash: note.type == "coach" || note.night != nil ? [5, 4] : [])))
         .clipShape(RoundedRectangle(cornerRadius: note.type == "image" ? 10 : 16))
         .shadow(color: Color.slInk.opacity(0.18), radius: 14, y: 10)
-        .rotationEffect(.degrees(["note", "idea", "risk", "goal"].contains(note.type) ? Double((Int(note.id.unicodeScalars.dropFirst(2).first?.value ?? 0) % 5) - 2) * 0.6 : 0))
+        .rotationEffect(.degrees(["note", "idea", "risk", "goal"].contains(note.type) && note.night == nil ? Double((Int(note.id.unicodeScalars.dropFirst(2).first?.value ?? 0) % 5) - 2) * 0.6 : 0))
     }
 }
 
@@ -589,7 +623,7 @@ struct BoardLines: View {
             let rects: [String: CGRect] = {
                 var m: [String: CGRect] = [:]
                 for p in placed { m[p.card.id] = CGRect(x: p.x + dx, y: p.y, width: BG.cardW, height: BG.cardH) }
-                for n in stickies { m[n.id] = CGRect(x: n.x + dx, y: n.y, width: n.type == "image" ? (n.w ?? 260) : BG.noteW, height: n.type == "image" ? (n.h ?? 180) : BG.noteH) }
+                for n in stickies { m[n.id] = CGRect(x: n.x + dx, y: n.y, width: n.type == "image" ? (n.w ?? 260) : (n.night != nil || ["answer", "coach"].contains(n.type) ? BG.noteW + 60 : BG.noteW), height: n.type == "image" ? (n.h ?? 180) : BG.noteH) }
                 return m
             }()
             if !timed {

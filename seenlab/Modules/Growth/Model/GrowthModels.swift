@@ -293,6 +293,9 @@ struct Sticky: Codable, Identifiable {
     var meta: StickyMeta?
     var w: Double?
     var h: Double?
+    /// Left by the night shift on that day (yyyy-MM-dd) until someone keeps it; `auto`: not placed on the board yet.
+    var night: String?
+    var auto: Bool?
 }
 
 struct BoardLink: Codable, Identifiable { var id: String; var from: String; var to: String }

@@ -340,6 +340,12 @@ struct GrowthStickySheet: View {
                     .disabled(["answer", "coach", "link", "image"].contains(note?.type ?? ""))
                 TextEditor(text: $text).accessibilityIdentifier("note-text").font(.hand(24)).scrollContentBackground(.hidden).padding(12).frame(minHeight: 180)
                     .background(type == "risk" ? Color.slBadSoft : type == "idea" ? Color.slTint100 : type == "goal" ? Color.slGoodSoft : Color.slMarker.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                // left by the night shift: keep it, or it may be cleared by a later night
+                if note?.night != nil {
+                    Button { store.apply(store.engine.editSticky(store.board, id: id) { $0.night = nil; $0.auto = nil }) } label: { Label(t("growth.night.keep"), systemImage: "pin").frame(maxWidth: .infinity) }
+                        .buttonStyle(SLButtonStyle(kind: .secondary))
+                    Text(t("growth.night.keepHint")).font(.dm(12)).foregroundStyle(Color.slInkMuted)
+                }
                 if !text.isEmpty, ["note", "idea", "goal", "risk"].contains(type) {
                     Button {
                         save()
