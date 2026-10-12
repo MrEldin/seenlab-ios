@@ -362,8 +362,8 @@ struct GrowthCanvas: View {
         let raw = Int(((topLeft.x + BG.cardW / 2 - BG.pad + BG.gapX / 2) / BG.colStep).rounded(.down))
         var kind = GrowthCols.all[max(0, min(3, raw))]
         let cost: Double = store.cards.first { $0.id == id }?.cost ?? 0
-        // the free path holds only what costs nothing
-        if kind == "free", cost > 0 { kind = "paid" }
+        // "fix first" and the free path hold only what costs nothing
+        if kind == "free" || kind == "fix", cost > 0 { kind = "paid" }
         let others: [BoardCard] = (columns.first { $0.kind == kind }?.cards ?? []).filter { $0.id != id }
         var index = 0
         for j in 0..<others.count where BG.top + CGFloat(j) * (BG.cardH + BG.gapY) + BG.cardH / 2 < topLeft.y + BG.cardH / 2 { index = j + 1 }
