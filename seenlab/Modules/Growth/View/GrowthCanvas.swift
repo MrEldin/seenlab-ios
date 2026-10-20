@@ -238,8 +238,8 @@ struct GrowthCanvas: View {
     @ViewBuilder private var listsLayer: some View {
         if showLists {
             let x = listsX - minX
-            RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.slGoodSoft.opacity(0.35))
-                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.slGood.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])))
+            // the web's .gb-inbox__lane.is-lists: marker stripes under an ink dash
+            StripedLane(a: Color.slMarker.opacity(0.08), b: Color.white.opacity(0.5), angle: 45, radius: 28, line: Color.slInk.opacity(0.35))
                 .frame(width: listsW + BG.framePad * 2, height: listsBottom - BG.top + BG.framePad * 2).offset(x: x - BG.framePad, y: BG.top - BG.framePad)
             ColumnHead(kind: "lists", title: t("growth.lists.title"), note: t("growth.lists.note")).frame(width: BG.cardW, height: 190, alignment: .bottomLeading).offset(x: x, y: BG.top - BG.framePad - 10 - 190)
             ForEach(Array(store.prospects.enumerated()), id: \.element.id) { i, pr in
@@ -439,7 +439,7 @@ struct CardTile: View {
     private var bg: Color {
         if lens == .status { return ["done": Color.slGoodSoft, "doing": Color.slMarker.opacity(0.2), "late": Color.slBadSoft.opacity(0.6)][stKey] ?? Color.slPaper }
         if lens == .result, status == "done" { return Color.slGood.opacity(0.08 + 0.3 * (heat ?? 0)) }
-        if status == "done" { return Color.slGoodSoft.opacity(0.7) }
+        if status == "done" { return Color.slGoodSoft.opacity(0.55) }
         if lens == .status, status == "doing" { return Color.slMarker.opacity(0.25) }
         return card.source == "custom" ? Color.slMarker.opacity(0.14) : .white
     }
@@ -451,7 +451,7 @@ struct CardTile: View {
                 Image(systemName: kindIcon(card.kind)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.slAccent600)
                 Text(card.channelName.isEmpty ? t("growth.board.custom") : card.channelName).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted).lineLimit(1)
                 Spacer(minLength: 4)
-                Image(systemName: status == "done" ? "checkmark.circle.fill" : status == "doing" ? "play.circle.fill" : "circle").font(.system(size: 18)).foregroundStyle(status == "done" ? Color.slGood : status == "doing" ? Color.slMarker : Color.slLineStrong)
+                if status != "done" { Image(systemName: status == "doing" ? "play.circle.fill" : "circle").font(.system(size: 18)).foregroundStyle(status == "doing" ? Color.slMarker : Color.slLineStrong) }
             }
             Text(card.title.isEmpty ? t("growth.board.customTitle") : card.title).font(.dm(16.5, .bold)).foregroundStyle(Color.slInk).lineLimit(2)
             Text(card.what).font(.dm(12.5)).foregroundStyle(Color.slInkSoft).lineLimit(2)
@@ -480,7 +480,10 @@ struct CardTile: View {
         .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 14)
         .background(bg, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(lens == .status ? stColor : status == "done" ? Color.slGood.opacity(0.7) : card.source == "custom" ? Color.slMarker : Color.slLine, style: StrokeStyle(lineWidth: 1.5, dash: lens == .status && (stKey == "todo" || stKey == "late") ? [6, 5] : [])))
-        .overlay(alignment: .leading) { if lens == .status { UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20).fill(stColor).frame(width: 6) } }
+        .overlay(alignment: .leading) {
+            if lens == .status { UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20).fill(stColor).frame(width: 6) }
+            else if status == "done" { UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20).fill(Color.slGood).frame(width: 4) }
+        }
         .overlay(alignment: .topLeading) {
             Text(t("growth.node.week", ["n": card.week])).font(.hand(17)).foregroundStyle(Color.slAccent700)
                 .padding(.horizontal, 8).padding(.vertical, 1).background(Color.slPaper, in: Capsule()).overlay(Capsule().stroke(Color.slLine)).offset(x: 14, y: -11)
@@ -597,13 +600,15 @@ struct InboxCard: View {
         }
         .padding(14)
         .background(Color.white, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(alignment: .leading) { UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18).fill(item.source == "aio" ? Color.purple : item.source == "aso" ? Color.slWarn : Color.slAccent600).frame(width: 4) }
+        .overlay(alignment: .leading) { UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18).fill(item.source == "aio" ? Color(rgb: 124, 58, 237) : item.source == "aso" ? Color.slWarn : Color.slAccent600).frame(width: 4) }
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.slLine, lineWidth: 1.5))
     }
 }
 
 struct StickyTile: View {
     var note: Sticky; var busy: Bool
+    /// a sticky note of paper (one corner curls), as on the web; the AI's, links and images are cards
+    private var paper: Bool { ["note", "idea", "risk", "goal"].contains(note.type) && note.night == nil }
     private var bg: Color { ["idea": .slTint100, "risk": .slBadSoft, "goal": .slGoodSoft, "link": .white, "answer": .white, "coach": .white, "image": .white][note.type] ?? Color.slMarker.opacity(0.62) }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -629,9 +634,10 @@ struct StickyTile: View {
         }
         .padding(note.type == "image" ? 0 : 14)
         .frame(minHeight: note.type == "image" ? nil : BG.noteH, alignment: .topLeading)
-        .background(bg, in: RoundedRectangle(cornerRadius: note.type == "note" || note.type == "idea" || note.type == "risk" || note.type == "goal" ? 6 : 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(note.type == "coach" || note.night != nil ? Color.slInk.opacity(note.night != nil ? 0.35 : 1) : note.type == "answer" ? Color.slAccent500 : .clear, style: StrokeStyle(lineWidth: 1.5, dash: note.type == "coach" || note.night != nil ? [5, 4] : [])))
-        .clipShape(RoundedRectangle(cornerRadius: note.type == "image" ? 10 : 16))
+        .background(bg, in: paper ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 18, topTrailingRadius: 4)) : AnyShape(RoundedRectangle(cornerRadius: note.type == "link" ? 14 : 16)))
+        .overlay(RoundedRectangle(cornerRadius: note.type == "link" ? 14 : 16).stroke(note.type == "coach" || note.night != nil ? Color.slInk.opacity(note.night != nil ? 0.28 : 1) : note.type == "answer" ? Color.slAccent500 : note.type == "link" ? Color.slLineStrong : .clear, style: StrokeStyle(lineWidth: 1.5, dash: note.type == "coach" || note.night != nil ? [5, 4] : [])))
+        .background(note.type == "answer" ? RoundedRectangle(cornerRadius: 20).fill(Color.slTint100).padding(-4) : nil)
+        .clipShape(paper ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 18, topTrailingRadius: 4)) : AnyShape(RoundedRectangle(cornerRadius: note.type == "image" ? 10 : note.type == "link" ? 14 : 16)))
         .shadow(color: Color.slInk.opacity(0.18), radius: 14, y: 10)
         .rotationEffect(.degrees(["note", "idea", "risk", "goal"].contains(note.type) && note.night == nil ? Double((Int(note.id.unicodeScalars.dropFirst(2).first?.value ?? 0) % 5) - 2) * 0.6 : 0))
     }
@@ -656,12 +662,14 @@ struct BoardLines: View {
                 return m
             }()
             if !timed {
-                let colors: [String: Color] = ["fix": .slWarn, "free": .slAccent500, "paid": .slInk.opacity(0.4), "scale": .slInk.opacity(0.5)]
+                // the web's .gb-frame, colour for colour
+                let strokes: [String: Color] = ["fix": .slWarn, "free": .slAccent400, "paid": .slInk.opacity(0.4), "scale": .slInk.opacity(0.5)]
+                let fills: [String: Color] = ["fix": .slWarnSoft.opacity(0.35), "free": .slTint50.opacity(0.85), "paid": .white.opacity(0.75), "scale": .slMarker.opacity(0.12)]
                 for (i, col) in columns.enumerated() {
                     let r = CGRect(x: BG.colX(i) - BG.framePad + dx, y: BG.top - BG.framePad, width: BG.cardW + BG.framePad * 2, height: bottom - BG.top + BG.framePad * 2)
                     let path = Path(roundedRect: r, cornerRadius: 28)
-                    ctx.fill(path, with: .color(col.kind == "fix" ? Color.slWarnSoft.opacity(0.35) : col.kind == "free" ? Color.slTint50.opacity(0.85) : Color.white.opacity(0.6)))
-                    ctx.stroke(path, with: .color(colors[col.kind] ?? .slLineStrong), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
+                    ctx.fill(path, with: .color(fills[col.kind] ?? .white.opacity(0.5)))
+                    ctx.stroke(path, with: .color(strokes[col.kind] ?? .slLineStrong), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
                     if i < 3 {
                         var a = Path(); let y = BG.top + BG.cardH / 2
                         a.move(to: CGPoint(x: BG.colX(i) + BG.cardW + BG.framePad + dx, y: y)); a.addLine(to: CGPoint(x: BG.colX(i + 1) - BG.framePad - 4 + dx, y: y))
@@ -671,6 +679,7 @@ struct BoardLines: View {
                 }
                 if inbox > 0 {
                     let r = CGRect(x: inboxX - BG.framePad + dx, y: BG.top - BG.framePad, width: BG.cardW + BG.framePad * 2, height: CGFloat(inbox) * (BG.inboxH + BG.gapY) - BG.gapY + BG.framePad * 2)
+                    stripes(&ctx, in: r, radius: 28, a: Color.slTint50.opacity(0.7), b: Color.white.opacity(0.5), angle: -45)
                     ctx.stroke(Path(roundedRect: r, cornerRadius: 28), with: .color(Color.slAccent600.opacity(0.55)), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
                 }
                 // frames (campaigns), as on the web: per column, one box around each run of the frame's cards that sit one
@@ -726,6 +735,22 @@ struct BoardLines: View {
         }
     }
 
+    /// The web's repeating-linear-gradient: 10pt bands of two colours at an angle, inside a rounded rect.
+    private func stripes(_ ctx: inout GraphicsContext, in r: CGRect, radius: CGFloat, a: Color, b: Color, angle: Double) {
+        ctx.drawLayer { layer in
+            layer.clip(to: Path(roundedRect: r, cornerRadius: radius))
+            layer.fill(Path(r), with: .color(b))
+            layer.translateBy(x: r.midX, y: r.midY)
+            layer.rotate(by: .degrees(angle))
+            let reach = max(r.width, r.height)
+            var x = -reach
+            while x < reach {
+                layer.fill(Path(CGRect(x: x, y: -reach, width: 10, height: reach * 2)), with: .color(a))
+                x += 20
+            }
+        }
+    }
+
     private func edge(_ r: CGRect, toward p: CGPoint) -> CGPoint {
         let dx = p.x - r.midX, dy = p.y - r.midY
         guard dx != 0 || dy != 0 else { return CGPoint(x: r.midX, y: r.midY) }
@@ -762,5 +787,25 @@ extension Color {
         let h = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         let v = UInt64(h, radix: 16) ?? 0x0F6E6E
         self.init(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
+}
+
+/// The web's striped lane: 10pt bands of two colours at an angle under a dashed line.
+struct StripedLane: View {
+    var a: Color; var b: Color; var angle: Double; var radius: CGFloat; var line: Color
+    var body: some View {
+        Canvas { ctx, size in
+            let r = CGRect(origin: .zero, size: size)
+            ctx.drawLayer { layer in
+                layer.clip(to: Path(roundedRect: r, cornerRadius: radius))
+                layer.fill(Path(r), with: .color(b))
+                layer.translateBy(x: r.midX, y: r.midY)
+                layer.rotate(by: .degrees(angle))
+                let reach = max(r.width, r.height)
+                var x = -reach
+                while x < reach { layer.fill(Path(CGRect(x: x, y: -reach, width: 10, height: reach * 2)), with: .color(a)); x += 20 }
+            }
+            ctx.stroke(Path(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), cornerRadius: radius), with: .color(line), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
+        }
     }
 }
