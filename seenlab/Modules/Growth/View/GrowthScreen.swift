@@ -5,7 +5,7 @@
 //  The Growth tab: the board fills the screen, like on the web. A floating header (the board and its maps, the
 //  budget, the button that draws the map, the rest in a menu) and a floating bar at the bottom (lenses, notes,
 //  the coach, undo). The first time, the budget card sits in the middle of the empty board. Free accounts see
-//  the sample board with the way to Pro.
+//  the sample board, read-only, with a word on what Pro is (no way to buy here: the plan is chosen on the web).
 //
 
 import SwiftUI
@@ -93,7 +93,7 @@ struct GrowthScreen: View {
             }
         }
         .sheet(item: $openCard) { o in
-            if let c = store.cards.first(where: { $0.id == o.id }) { GrowthCardSheet(store: store, card: c, readonly: locked, unlock: unlock) }
+            if let c = store.cards.first(where: { $0.id == o.id }) { GrowthCardSheet(store: store, card: c, readonly: locked) }
         }
         .sheet(item: $openSticky) { o in if store.stickies.contains(where: { $0.id == o.id }) { GrowthStickySheet(store: store, id: o.id) { openCard = OpenID(id: $0) } } }
         .sheet(item: $openProspect) { o in ProspectSheet(store: store, id: o.id) }
@@ -121,7 +121,6 @@ struct GrowthScreen: View {
     }
 
     private var boardName: String { store.sharedId.flatMap { id in store.shared.first { $0.appId == id }?.name } ?? projects.current?.name ?? "" }
-    private func unlock() { openURL(URL(string: "https://seenlab.io/app/checkout?plan=pro&interval=month")!) }
 
     // MARK: header
 
@@ -173,7 +172,6 @@ struct GrowthScreen: View {
                 }
                 if !locked, store.data?.team?.role != "member" { Button { openURL(URL(string: "https://seenlab.io/app/growth?measure=1")!) } label: { Label(t("growth.measure.title"), systemImage: "chart.bar.xaxis") } }
                 Button { openURL(URL(string: "https://seenlab.io/app/growth")!) } label: { Label(t("ios.openWeb"), systemImage: "safari") }
-                if locked { Button { unlock() } label: { Label(t("growth.locked.cta"), systemImage: "lock.open") } }
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 16, weight: .bold)).foregroundStyle(Color.slInkSoft).frame(width: 34, height: 34)
             }
@@ -192,8 +190,7 @@ struct GrowthScreen: View {
             if locked {
                 HStack(spacing: 10) {
                     Label(t("growth.locked.tag"), systemImage: "lock.fill").font(.dm(11, .heavy)).padding(.horizontal, 8).padding(.vertical, 4).background(Color.slMarker, in: Capsule()).foregroundStyle(Color.slInk)
-                    Text(t("growth.locked.text")).font(.dm(12)).foregroundStyle(Color.slInkSoft).lineLimit(2)
-                    Button(t("growth.locked.cta")) { unlock() }.font(.dm(12.5, .semibold)).padding(.horizontal, 12).padding(.vertical, 8).background(Color.slInk, in: Capsule()).foregroundStyle(.white)
+                    Text(t("growth.locked.text")).font(.dm(12)).foregroundStyle(Color.slInkSoft).lineLimit(3)
                 }
                 .padding(10).background(.white, in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.slLine))
             }

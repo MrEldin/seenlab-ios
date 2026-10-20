@@ -58,6 +58,8 @@ enum SeenlabAPI {
     static let user = APIRoute(path: "/auth/user")
     static let logout = APIRoute(path: "/auth/logout", method: .POST)
     static func profile(locale: String) -> APIRoute { APIRoute(path: "/auth/profile", method: .PUT, body: ["locale": locale]) }
+    /// Deletes the account and everything it owns; `confirm` is the account's own address, typed.
+    static func deleteAccount(confirm: String) -> APIRoute { APIRoute(path: "/auth/account", method: .DELETE, body: ["confirm": confirm]) }
 
     // Projects
     static let projects = APIRoute(path: "/admin/aso/projects")

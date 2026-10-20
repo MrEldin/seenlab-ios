@@ -12,7 +12,6 @@ struct GrowthCardSheet: View {
     @ObservedObject var store: GrowthStore
     let card: BoardCard
     var readonly: Bool
-    var unlock: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var status = "todo"
@@ -82,7 +81,9 @@ struct GrowthCardSheet: View {
                     }
 
                     if readonly {
-                        Button(t("growth.locked.cta"), action: unlock).buttonStyle(SLButtonStyle(kind: .primary)).frame(maxWidth: .infinity).padding(.top, 8)
+                        // the sample: what the real thing adds, said once, with nothing to buy here
+                        Text(t("growth.locked.drawer")).font(.dm(13)).foregroundStyle(Color.slInkSoft).padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading).background(Color.slTint50, in: RoundedRectangle(cornerRadius: 12)).padding(.top, 8)
                     } else {
                         markBox
                         if people.count > 1 { whoBox }

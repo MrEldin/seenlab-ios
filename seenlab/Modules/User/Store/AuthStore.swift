@@ -56,6 +56,13 @@ final class AuthStore: ObservableObject {
         Task { _ = try? await NetworkManager.shared.request(SeenlabAPI.profile(locale: code), as: JSONValue.self) }
     }
 
+    /// Deletes the account for good (the API checks the typed address) and ends the session; throws with the API's word when it refuses.
+    func deleteAccount(confirm: String) async throws {
+        _ = try await NetworkManager.shared.request(SeenlabAPI.deleteAccount(confirm: confirm), as: JSONValue.self)
+        await PushManager.shared.signOut()
+        endSession(nil)
+    }
+
     func logout() async {
         await PushManager.shared.signOut()   // this phone stops getting the account's pushes
         _ = try? await NetworkManager.shared.request(SeenlabAPI.logout, as: JSONValue.self)

@@ -14,6 +14,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
 
     private let languages: [(String, String)] = [("sr", "Srpski"), ("en", "English"), ("de", "Deutsch"), ("es", "Español"), ("fr", "Français")]
+    @State private var deleteOpen = false
 
     var body: some View {
         NavigationStack {
@@ -76,10 +77,16 @@ struct SettingsView: View {
                     .buttonStyle(SLButtonStyle(kind: .primary))
                     .padding(.top, 6)
 
+                // the account can be ended here, as it can on the web
+                Button { deleteOpen = true } label: { HStack { Spacer(); Text(t("ios.settings.delete.button")).font(.dm(13.5, .semibold)); Spacer() } }
+                    .foregroundStyle(Color.slBad).padding(.vertical, 10)
+                    .accessibilityIdentifier("settings-delete")
+
                 Text(t("ios.settings.version", ["v": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"]))
                     .font(.dm(12)).foregroundStyle(Color.slInkFaint).frame(maxWidth: .infinity)
             }
             .navigationTitle(t("ios.settings.title"))
+            .sheet(isPresented: $deleteOpen) { DeleteAccountSheet().environmentObject(auth) }
         }
     }
 
@@ -88,5 +95,64 @@ struct SettingsView: View {
             Text(title).font(.dm(13, .semibold)).foregroundStyle(Color.slInkMuted).padding(.leading, 4)
             SLCard(padding: 0) { content().padding(.horizontal, 16) }
         }
+    }
+}
+
+/// Ending the account: what goes with it, the address typed to confirm, one red button. The API refuses a wrong address.
+struct DeleteAccountSheet: View {
+    @EnvironmentObject private var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var typed = ""
+    @State private var busy = false
+    @State private var error: String?
+
+    private var email: String { auth.user?.email ?? "" }
+    private var matches: Bool { typed.trimmingCharacters(in: .whitespaces).lowercased() == email.lowercased() && !email.isEmpty }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(t("ios.settings.delete.hand")).font(.hand(24)).foregroundStyle(Color.slAccent600)
+                    Text(t("ios.settings.delete.title")).font(.dm(22, .bold)).tracking(-0.3).foregroundStyle(Color.slInk)
+                    Text(t("ios.settings.delete.text")).font(.dm(14.5)).foregroundStyle(Color.slInkSoft)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(t("ios.settings.delete.confirm", ["email": email])).font(.dm(13, .semibold)).foregroundStyle(Color.slInk)
+                        TextField(email, text: $typed)
+                            .textInputAutocapitalization(.never).keyboardType(.emailAddress).autocorrectionDisabled()
+                            .font(.dm(15)).padding(.horizontal, 14).frame(height: 46)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(matches ? Color.slAccent600 : Color.slLine))
+                            .accessibilityIdentifier("delete-confirm")
+                    }
+                    .padding(.top, 6)
+
+                    if let error { Text(error).font(.dm(13, .semibold)).foregroundStyle(Color.slBad) }
+
+                    Button {
+                        Task {
+                            busy = true; error = nil
+                            do { try await auth.deleteAccount(confirm: typed) } catch { self.error = error.localizedDescription }
+                            busy = false
+                        }
+                    } label: {
+                        HStack { Spacer(); Text(busy ? "…" : t("ios.settings.delete.button")); Spacer() }
+                    }
+                    .buttonStyle(SLButtonStyle(kind: .primary)).tint(Color.slBad)
+                    .disabled(!matches || busy)
+                    .opacity(matches ? 1 : 0.5)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("delete-go")
+
+                    Button(t("ios.settings.delete.keep")) { dismiss() }.font(.dm(14, .semibold)).foregroundStyle(Color.slInkMuted).frame(maxWidth: .infinity)
+                }
+                .padding(20)
+            }
+            .background(Color.slBg)
+            .navigationTitle(t("ios.settings.delete.nav"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.large])
     }
 }
