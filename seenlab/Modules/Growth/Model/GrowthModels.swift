@@ -74,7 +74,9 @@ struct Measured: Decodable {
     var installs: Int?
     var revenue: Num?
     var from: [String]
-    enum CodingKeys: String, CodingKey { case code, url, clicks, visits, signups, installs, revenue, from }
+    /// auto | app | web: where the link sends people (the founder's choice, per link)
+    var target: String
+    enum CodingKeys: String, CodingKey { case code, url, clicks, visits, signups, installs, revenue, from, target }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         code = try c.decode(String.self, forKey: .code); url = try c.decode(String.self, forKey: .url)
@@ -82,6 +84,7 @@ struct Measured: Decodable {
         visits = try? c.decodeIfPresent(Int.self, forKey: .visits); signups = try? c.decodeIfPresent(Int.self, forKey: .signups)
         installs = try? c.decodeIfPresent(Int.self, forKey: .installs); revenue = try? c.decodeIfPresent(Num.self, forKey: .revenue)
         from = (try? c.decode([String].self, forKey: .from)) ?? []
+        target = (try? c.decodeIfPresent(String.self, forKey: .target)) ?? "auto"
     }
 }
 

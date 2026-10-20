@@ -23,11 +23,21 @@ struct AioPromptsView: View {
             HStack(alignment: .top, spacing: 10) {
                 CardTitle(title: t("aio.prompts.title"), subtitle: t("aio.prompts.subtitle"), kb: { channel.kb("prompts") })
                 Spacer(minLength: 0)
-                Text(t("aio.prompts.count", ["n": activeCount, "limit": data.limit ?? 0]))
-                    .font(.dm(11.5, .semibold)).monospacedDigit().foregroundStyle(Color.slInkSoft)
-                    .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(Color.slBg, in: Capsule())
-                    .fixedSize()
+                // the pool is the account's, over all its projects; past what one project needs, a word in the app's hand
+                VStack(alignment: .trailing, spacing: 3) {
+                    if let pool = data.pool {
+                        Text(t("aio.pool.counter") + "  " + "\(pool.used) / \(pool.limit)")
+                            .font(.dm(11.5, .semibold)).monospacedDigit().foregroundStyle(pool.used >= pool.limit ? Color.slBad : Color.slInkSoft)
+                            .padding(.horizontal, 9).padding(.vertical, 4).background(Color.slBg, in: Capsule())
+                        if (pool.projects?.count ?? 0) > 1 { Text(t("aio.pool.here", ["n": activeCount])).font(.dm(11)).foregroundStyle(Color.slInkMuted) }
+                        if activeCount >= (pool.soft ?? 5) { Text(t("aio.pool.enoughNote")).font(.hand(16)).foregroundStyle(Color.slAccent600).rotationEffect(.degrees(-2)) }
+                    } else {
+                        Text(t("aio.prompts.count", ["n": activeCount, "limit": data.limit ?? 0]))
+                            .font(.dm(11.5, .semibold)).monospacedDigit().foregroundStyle(Color.slInkSoft)
+                            .padding(.horizontal, 9).padding(.vertical, 4).background(Color.slBg, in: Capsule())
+                    }
+                }
+                .fixedSize()
             }
         }
 

@@ -269,10 +269,12 @@ final class GrowthStore: ObservableObject {
     var prospects: [Prospect] { data?.outreach ?? [] }
     func benchmark(_ channel: String?) -> Benchmark? { channel.flatMap { data?.benchmarks[$0] } }
 
-    /// The card's own link (made once): every click on it, and what followed, counts for the card.
-    func makeLink(_ card: BoardCard) async {
+    /// The card's own link (made once): every click on it, and what followed, counts for the card. `target` moves where
+    /// it sends people: auto (the store on a phone, the site on a computer), app (the store), web (the site).
+    func makeLink(_ card: BoardCard, target: String? = nil) async {
         var body: [String: Any] = ["card": card.id]
         if let ch = card.channel { body["channel"] = ch }
+        if let target { body["target"] = target }
         do {
             _ = try await NetworkManager.shared.data(route("links", .POST, body: body))
             await load(project: projectId, map: data?.current, quiet: true)

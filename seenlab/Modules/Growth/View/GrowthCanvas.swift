@@ -21,6 +21,15 @@ enum BG {
     static let top = pad + head + framePad
     static let weekW = cardW + 64
     static let noteW: CGFloat = 220, noteH: CGFloat = 132
+    /// A note's size by kind, exactly the web's noteSize(): an image its own, a link with a preview wider, the night's and the AI's wider and taller.
+    static func noteSize(_ n: Sticky) -> CGSize {
+        if n.type == "image" { return CGSize(width: n.w ?? 260, height: n.h ?? 180) }
+        if n.type == "link", n.meta?.image != nil { return CGSize(width: noteW + 40, height: noteH + 104) }
+        if n.type == "link", n.meta?.title != nil { return CGSize(width: noteW + 40, height: noteH) }
+        if n.night != nil { return CGSize(width: noteW + 60, height: noteH + 70) }
+        if n.type == "answer" || n.type == "coach" { return CGSize(width: noteW + 60, height: noteH + 10) }
+        return CGSize(width: noteW, height: noteH)
+    }
     static let inboxW = cardW + framePad * 2 + 150, inboxH: CGFloat = 196
     static let prosH: CGFloat = 184
     static func colX(_ i: Int) -> CGFloat { pad + framePad + CGFloat(i) * colStep }
@@ -105,7 +114,7 @@ struct GrowthCanvas: View {
     private func boardSize(_ bottom: CGFloat, weeks: Int) -> CGSize {
         let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(showLists ? max(4, columns.count) + 1 : 4) - BG.gapX + (showLists ? listsW - BG.cardW : 0)
         var s = CGSize(width: w - minX, height: max(bottom, showInbox ? BG.top + CGFloat(store.inbox.count) * (BG.inboxH + BG.gapY) : 0, showLists ? listsBottom : 0) + BG.framePad + BG.pad)
-        for n in store.stickies { s.width = max(s.width, n.x + BG.noteW + BG.pad - minX); s.height = max(s.height, n.y + BG.noteH + BG.pad) }
+        for n in store.stickies { let z = BG.noteSize(n); s.width = max(s.width, n.x + z.width + BG.pad - minX); s.height = max(s.height, n.y + z.height + BG.pad) }
         return s
     }
 
@@ -186,7 +195,7 @@ struct GrowthCanvas: View {
 
     private func board(_ p: Placed, size: CGSize) -> some View {
         ZStack(alignment: .topLeading) {
-            BoardLines(columns: columns, placed: p.cards, stickies: store.stickies, links: store.links, frames: timed ? [] : store.frames, bottom: p.bottom, timed: timed, dx: -minX, inbox: showInbox ? store.inbox.count : 0, inboxX: inboxX)
+            BoardLines(columns: columns, placed: p.cards, stickies: store.stickies, links: store.links, frames: timed ? [] : store.frames, bottom: p.bottom, timed: timed, dx: -minX, inbox: showInbox ? store.inbox.count : 0, inboxX: inboxX, status: status)
             headsLayer(p)
             inboxLayer
             listsLayer
@@ -299,9 +308,8 @@ struct GrowthCanvas: View {
     }
 
     private func stickyView(_ n: Sticky) -> some View {
-        let w: CGFloat = n.type == "image" ? (n.w ?? 260) : (["answer", "coach"].contains(n.type) || n.night != nil ? BG.noteW + 60 : BG.noteW)
         return StickyTile(note: n, busy: store.busy.contains(n.id))
-            .frame(width: w)
+            .frame(width: BG.noteSize(n).width)
             .opacity(held?.id == n.id || lens == .status ? 0.25 : 1)
             .offset(x: n.x - minX, y: n.y)
             .accessibilityElement(children: .combine)
@@ -633,13 +641,18 @@ struct StickyTile: View {
 struct BoardLines: View {
     var columns: [BoardColumn]; var placed: [PlacedCard]; var stickies: [Sticky]; var links: [BoardLink]; var frames: [BoardFrame]
     var bottom: CGFloat; var timed: Bool; var dx: CGFloat; var inbox: Int; var inboxX: CGFloat
+    var status: (String) -> String = { _ in "todo" }
+    /// A frame's colour, as on the web: teal unless the founder picked one.
+    private func frameColor(_ f: BoardFrame) -> Color {
+        switch f.color { case "amber": return .slWarn; case "violet": return Color(rgb: 124, 58, 237); case "rose": return Color(rgb: 190, 24, 93); case "blue": return Color(rgb: 37, 99, 235); default: return .slAccent600 }
+    }
 
     var body: some View {
         Canvas { ctx, _ in
             let rects: [String: CGRect] = {
                 var m: [String: CGRect] = [:]
                 for p in placed { m[p.card.id] = CGRect(x: p.x + dx, y: p.y, width: BG.cardW, height: BG.cardH) }
-                for n in stickies { m[n.id] = CGRect(x: n.x + dx, y: n.y, width: n.type == "image" ? (n.w ?? 260) : (n.night != nil || ["answer", "coach"].contains(n.type) ? BG.noteW + 60 : BG.noteW), height: n.type == "image" ? (n.h ?? 180) : BG.noteH) }
+                for n in stickies { let z = BG.noteSize(n); m[n.id] = CGRect(x: n.x + dx, y: n.y, width: z.width, height: z.height) }
                 return m
             }()
             if !timed {
@@ -660,14 +673,39 @@ struct BoardLines: View {
                     let r = CGRect(x: inboxX - BG.framePad + dx, y: BG.top - BG.framePad, width: BG.cardW + BG.framePad * 2, height: CGFloat(inbox) * (BG.inboxH + BG.gapY) - BG.gapY + BG.framePad * 2)
                     ctx.stroke(Path(roundedRect: r, cornerRadius: 28), with: .color(Color.slAccent600.opacity(0.55)), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
                 }
-                // frames: a box around each run of a frame's cards in a column
-                for f in frames {
+                // frames (campaigns), as on the web: per column, one box around each run of the frame's cards that sit one
+                // under another (a card between them stays out); the label with name · cost · hours · done sits in the
+                // gap under the first box's last card, never on a card
+                for (fi, f) in frames.enumerated() {
                     let members = placed.filter { f.cards.contains($0.card.id) }
-                    for x in Set(members.map(\.x)) {
-                        let ys = members.filter { $0.x == x }.map(\.y)
-                        guard let lo = ys.min(), let hi = ys.max() else { continue }
-                        let r = CGRect(x: x - 10 + dx, y: lo - 10, width: BG.cardW + 20, height: hi - lo + BG.cardH + 20)
-                        ctx.stroke(Path(roundedRect: r, cornerRadius: 24), with: .color(Color.slAccent600), lineWidth: 2)
+                    guard !members.isEmpty else { continue }
+                    let color = frameColor(f)
+                    let pad: CGFloat = 8 + CGFloat(fi % 3) * 3
+                    let cards = members.map(\.card)
+                    let cost = cards.filter { status($0.id) != "skipped" }.reduce(0.0) { $0 + $1.cost }
+                    let hours = cards.reduce(0.0) { $0 + $1.effortHours }
+                    let done = cards.filter { status($0.id) == "done" }.count
+                    var first = true
+                    for x in Set(members.map(\.x)).sorted() {
+                        let ys = members.filter { $0.x == x }.map(\.y).sorted()
+                        var runs: [(CGFloat, CGFloat)] = []
+                        for y in ys { if let last = runs.last, y - last.1 <= BG.cardH + BG.gapY + 1 { runs[runs.count - 1].1 = y } else { runs.append((y, y)) } }
+                        for (lo, hi) in runs {
+                            let r = CGRect(x: x - pad + dx, y: lo - pad, width: BG.cardW + pad * 2, height: hi - lo + BG.cardH + pad * 2)
+                            let path = Path(roundedRect: r, cornerRadius: 24)
+                            ctx.fill(path, with: .color(color.opacity(0.07)))
+                            ctx.stroke(path, with: .color(color), lineWidth: 2)
+                            if first {
+                                first = false
+                                let label = (f.title.isEmpty ? t("growth.frames.untitled") : f.title) + "  " + (cost > 0 ? "$" + Fmt.int(cost) : t("growth.node.free")) + " · " + t("growth.node.hours", ["n": Fmt.int(hours)]) + " · \(done)/\(cards.count)"
+                                let text = Text(label).font(.dm(11, .bold)).foregroundStyle(.white)
+                                let resolved = ctx.resolve(text)
+                                let size = resolved.measure(in: CGSize(width: r.width - 24, height: 24))
+                                let box = CGRect(x: r.minX + 12, y: r.maxY - pad + 2, width: size.width + 16, height: 22)
+                                ctx.fill(Path(roundedRect: box, cornerRadius: 8), with: .color(color))
+                                ctx.draw(resolved, in: CGRect(x: box.minX + 8, y: box.minY + 4, width: size.width, height: 14))
+                            }
+                        }
                     }
                 }
             }

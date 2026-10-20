@@ -164,7 +164,29 @@ struct GrowthCardSheet: View {
             CopyButton(text: m.url)
         }
         .padding(10).background(.white, in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.slLine))
-        Text(t("growth.measure.pasteWhere")).font(.dm(12)).foregroundStyle(Color.slInkMuted)
+        // where the link sends people: the founder's call, per link
+        if !readonly {
+            HStack(spacing: 10) {
+                Text(t("growth.measure.target.label")).font(.dm(12, .semibold)).foregroundStyle(Color.slInkMuted)
+                HStack(spacing: 2) {
+                    ForEach(["auto", "app", "web"], id: \.self) { o in
+                        Button {
+                            guard o != m.target, !linking else { return }
+                            linking = true; Task { await store.makeLink(card, target: o); linking = false }
+                        } label: {
+                            Text(t("growth.measure.target." + o)).font(.dm(12, .semibold))
+                                .padding(.horizontal, 10).frame(height: 26)
+                                .background(m.target == o ? Color.slInk : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                .foregroundStyle(m.target == o ? .white : Color.slInkMuted)
+                        }
+                        .buttonStyle(.plain).accessibilityIdentifier("link-target-\(o)")
+                    }
+                }
+                .padding(2).background(.white, in: RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.slLine))
+                .opacity(linking ? 0.6 : 1)
+            }
+        }
+        Text(t("growth.measure.target.hint." + m.target) + " " + t("growth.measure.pasteWhere")).font(.dm(12)).foregroundStyle(Color.slInkMuted)
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach(numbers(m), id: \.0) { n in numTile(n.0, n.1, money: n.2) }
         }

@@ -15,6 +15,8 @@ struct AioOverview: Decodable {
     let aliases: [String]?
     let websiteUrl: String?
     let limit: Int?
+    /// the account's pool over all its projects: how many are in use, the pool, how many one project needs
+    let pool: AioPool?
     let samples: Int?
     let facts: String?
     let positioning: String?
@@ -201,3 +203,16 @@ struct AioMap<Value: Decodable>: Decodable {
 
 extension AioMap: Equatable where Value: Equatable {}
 extension AioMap: Hashable where Value: Hashable {}
+
+/// The account's pool of prompts (GET aio/overview → pool).
+struct AioPool: Decodable {
+    let used: Int
+    let limit: Int
+    let soft: Int?
+    let projects: [AioPoolProject]?
+}
+struct AioPoolProject: Decodable, Identifiable {
+    let id: Int
+    let name: String
+    let count: Int
+}
