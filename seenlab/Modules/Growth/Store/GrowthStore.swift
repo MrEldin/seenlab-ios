@@ -44,7 +44,12 @@ final class GrowthStore: ObservableObject {
     var stickies: [Sticky] { engine.effective(board).stickies }
     var links: [BoardLink] { engine.effective(board).links }
     var frames: [BoardFrame] { engine.effective(board).frames }
-    var inbox: [InboxItem] { let done = Set(engine.effective(board).inboxDone); return (data?.inbox ?? []).filter { !done.contains($0.id) } }
+    /// The findings not taken or dismissed, one per id: a second item with the same id would leave its place empty (ForEach keys by id).
+    var inbox: [InboxItem] {
+        let done = Set(engine.effective(board).inboxDone)
+        var seen = Set<String>()
+        return (data?.inbox ?? []).filter { !done.contains($0.id) && seen.insert($0.id).inserted }
+    }
     var running: Bool { ["pending", "running"].contains(job?.status ?? "") }
     var hasPlan: Bool { data?.plan != nil }
 
