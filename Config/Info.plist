@@ -10,7 +10,7 @@
 	</dict>
 	<!-- The app's Apple ID from App Store Connect: Settings gets a "rate on the App Store" link once it is set. -->
 	<key>SLAppStoreID</key>
-	<string></string>
+	<string>6817313665</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<!-- The languages the app speaks (Resources/Locales): the App Store lists them, and iOS offers the per-app language choice. -->
