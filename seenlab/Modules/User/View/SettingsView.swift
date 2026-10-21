@@ -52,6 +52,23 @@ struct SettingsView: View {
                     }
                 }
 
+                if let url = ReviewAsk.writeReviewURL {
+                    section(t("ios.settings.rateTitle")) {
+                        Button { openURL(url) } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "star.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.slMarker)
+                                    .overlay(Image(systemName: "star").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.slAccent700))
+                                Text(t("ios.settings.rate")).font(.dm(15)).foregroundStyle(Color.slInk)
+                                Spacer()
+                                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.slInkFaint)
+                            }
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 section(t("ios.settings.legal")) {
                     RowList(items: [("terms", t("ios.settings.terms")), ("privacy", t("ios.settings.privacy"))]) { item in
                         Button { openURL(URL(string: "https://seenlab.io/\(item.0)")!) } label: {

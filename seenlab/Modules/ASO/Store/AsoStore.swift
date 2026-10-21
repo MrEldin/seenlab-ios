@@ -98,6 +98,10 @@ final class AsoStore: ObservableObject {
             self.listingChanges = changes ?? []
             loadedKey = key
             loadedProject = project
+            // good news is the moment to ask for a rating: the biggest climb of the morning, 5+ places
+            if let m = (overview?.movers ?? []).filter({ ($0.delta ?? 0) >= 5 && $0.to != nil }).max(by: { ($0.delta ?? 0) < ($1.delta ?? 0) }) {
+                Task { @MainActor in ReviewAsk.shared.offer(.asoUp, ["kw": m.term, "n": Int(m.delta ?? 0)]) }
+            }
         } catch {
             guard !Task.isCancelled else { return }
             self.error = (error as? APIError)?.errorDescription ?? t("ios.loadFailed")

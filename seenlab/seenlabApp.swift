@@ -30,6 +30,7 @@ struct seenlabApp: App {
         }
         #endif
         _auth = StateObject(wrappedValue: AuthStore())
+        ReviewAsk.shared.launched()
         #if DEBUG
         TouchIndicator.install()
         #endif

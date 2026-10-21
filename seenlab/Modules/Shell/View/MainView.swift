@@ -17,6 +17,7 @@ struct MainView: View {
     @ObservedObject private var notices = NoticeStore.shared
     @Environment(\.scenePhase) private var phase
     @State private var listOpen = false
+    @ObservedObject private var ask = ReviewAsk.shared
 
     /// The channels the plan includes, in tab order. Until the user is loaded, all of them.
     private var channels: [Channel] {
@@ -45,11 +46,12 @@ struct MainView: View {
                     Tab(t("ios.settings.title"), systemImage: "gearshape", value: Channel.settings) { SettingsView() }
                 }
                 .tint(Color.slAccent600)
+                .overlay { if let m = ask.pending { RateSheet(moment: m).id(m.id).transition(.opacity) } }
             }
         }
         .task { if !projects.loaded { await projects.load() } }
         #if DEBUG
-        .onAppear { if let t = UserDefaults.standard.string(forKey: "startTab"), let c = Channel(rawValue: t) { tab = c } }
+        .onAppear { if let t = UserDefaults.standard.string(forKey: "startTab"), let c = Channel(rawValue: t) { tab = c }; ask.debugShow() }
         #endif
         .task { if auth.user == nil { await auth.loadUser() } }
         // notifications: ask once, register this phone, the bell's count (and the icon badge) on every return

@@ -50,6 +50,7 @@ final class AioStore: ObservableObject {
             let data = try await NetworkManager.shared.request(SeenlabAPI.aioOverview(days: 30), as: AioOverview.self)
             guard projectId == project else { return }
             overview = data
+            if let n = data?.kpis?.mentioned, n > 0 { Task { @MainActor in ReviewAsk.shared.offer(.aioMention, ["n": n]) } }
         } catch {
             guard projectId == project else { return }
             if overview == nil { self.error = (error as? APIError)?.errorDescription ?? t("ios.loadFailed") }

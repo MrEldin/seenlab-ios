@@ -153,6 +153,7 @@ final class GrowthStore: ObservableObject {
         body["visitors"] = visitors ?? NSNull(); body["signups"] = signups ?? NSNull(); body["spent"] = spent ?? NSNull(); body["note"] = note ?? NSNull()
         let raw = try await NetworkManager.shared.data(route("steps/" + id, .PUT, body: body))
         if let s = try? decoder.decode(Envelope<GrowthState>.self, from: raw).data { data?.state.steps = s.steps }
+        if status == "done" { ReviewAsk.shared.offer(.growthDone) }
     }
 
     func comments(for card: String) -> [Comment] { (data?.state.comments ?? []).filter { $0.card == card } }
