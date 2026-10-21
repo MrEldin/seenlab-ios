@@ -11,6 +11,9 @@ import SwiftUI
 struct AioSetupView: View {
     let data: AioOverview
     @Environment(\.channel) private var channel
+    @EnvironmentObject private var auth: AuthStore
+
+    private var cadence: Cadence { Cadence(auth.user?.subscription) }
 
     private var aliases: [String] { data.aliases ?? [] }
     private var autoNames: [String] {
@@ -59,7 +62,7 @@ struct AioSetupView: View {
         }
 
         SLCard {
-            CardTitle(title: t("aio.engines.title"), subtitle: t("aio.setup.enginesSub"), kb: { channel.kb("engines") })
+            CardTitle(title: t("aio.engines.title"), subtitle: t("aio.setup.enginesSub", ["when": cadence.assistantsEvery]), kb: { channel.kb("engines") })
             RowList(items: data.engines ?? []) { e in
                 let on = e.enabled == true
                 HStack(spacing: 12) {
@@ -73,6 +76,8 @@ struct AioSetupView: View {
                     }
                     Spacer(minLength: 6)
                     if on {
+                        // the days this assistant is asked on the current plan
+                        Text(cadence.engineDays(e.key, e.days)).font(.dm(11)).foregroundStyle(Color.slInkMuted).monospacedDigit()
                         Circle().fill(Color.slGood).frame(width: 8, height: 8)
                             .padding(.horizontal, 8).padding(.vertical, 6)
                             .background(Color.slGoodSoft, in: Capsule())

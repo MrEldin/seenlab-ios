@@ -112,7 +112,7 @@ struct GrowthCanvas: View {
     private var listsW: CGFloat { CGFloat(listsCols) * BG.cardW + CGFloat(listsCols - 1) * 24 }
     private var listsBottom: CGFloat { BG.top + CGFloat(min(listsRows, store.prospects.count)) * (BG.prosH + BG.gapY) - BG.gapY }
     private func boardSize(_ bottom: CGFloat, weeks: Int) -> CGSize {
-        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(showLists ? max(4, columns.count) + 1 : 4) - BG.gapX + (showLists ? listsW - BG.cardW : 0)
+        let w = timed ? BG.pad * 2 + BG.framePad * 2 + CGFloat(weeks) * BG.weekW : BG.pad * 2 + BG.colStep * CGFloat(max(4, columns.count) + (showLists ? 1 : 0)) - BG.gapX + (showLists ? listsW - BG.cardW : 0)
         var s = CGSize(width: w - minX, height: max(bottom, showInbox ? BG.top + CGFloat(store.inbox.count) * (BG.inboxH + BG.gapY) : 0, showLists ? listsBottom : 0) + BG.framePad + BG.pad)
         for n in store.stickies { let z = BG.noteSize(n); s.width = max(s.width, n.x + z.width + BG.pad - minX); s.height = max(s.height, n.y + z.height + BG.pad) }
         return s
@@ -165,10 +165,12 @@ struct GrowthCanvas: View {
     }
 
     private func fit(_ view: CGSize, _ size: CGSize, all: Bool = false) {
-        let k = all ? min(1, max(0.2, min((view.width - 24) / size.width, (view.height - 180) / size.height))) : min(0.62, max(0.42, (view.width - 24) / (BG.cardW + BG.framePad * 2 + 30)))
+        let k = all ? min(1, max(0.12, min((view.width - 24) / size.width, (view.height - 180) / size.height))) : min(0.62, max(0.42, (view.width - 24) / (BG.cardW + BG.framePad * 2 + 30)))
         scale = k; scaleBase = k
         let x = all ? max(12, (view.width - size.width * k) / 2) : 12 - (showInbox && !all ? (BG.inboxW - 0) * k : 0)
-        offset = CGSize(width: x, height: 74); panBase = offset
+        // the whole board sits centred in the room between the header and the toolbar
+        let y = all ? 74 + max(0, ((view.height - 180) - size.height * k) / 2) : 74
+        offset = CGSize(width: x, height: y); panBase = offset
     }
 
     private var panGesture: some Gesture {
@@ -180,7 +182,7 @@ struct GrowthCanvas: View {
         MagnifyGesture()
             .onChanged { v in
                 pinching = true
-                let k = min(1.5, max(0.2, scaleBase * v.magnification))
+                let k = min(1.5, max(0.12, scaleBase * v.magnification))
                 // the point under the fingers stays under the fingers
                 let a = v.startLocation
                 offset = CGSize(width: a.x - (a.x - panBase.width) * (k / scaleBase), height: a.y - (a.y - panBase.height) * (k / scaleBase))

@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SeoRankView: View {
     let data: SeoRankData?
+    @EnvironmentObject private var auth: AuthStore
 
     private let depth = 20
 
@@ -38,7 +39,7 @@ struct SeoRankView: View {
     private var organic: [SeoKeyword] { data?.organic ?? [] }
 
     private var organicCard: some View {
-        SeoSection(title: t("seo.rank.title"), subtitle: t("seo.rank.subtitle"), kb: "rankings") {
+        SeoSection(title: t("seo.rank.title"), subtitle: t("seo.rank.subtitle", ["when": Cadence(auth.user?.subscription).googleEvery]), kb: "rankings") {
             VStack(alignment: .trailing, spacing: 6) {
                 if data?.job?.isRunning == true { Chip(text: t("seo.rank.tracking"), tone: .accent, icon: "arrow.triangle.2.circlepath") }
                 if let limit = data?.limits?.organic {

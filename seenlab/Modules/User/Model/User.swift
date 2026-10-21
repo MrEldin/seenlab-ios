@@ -47,12 +47,23 @@ struct Subscription: Decodable {
     let engines: [String]?
     /// Channels the plan includes (`aso`, `seo`, `aio`); null or absent = all three.
     let channels: [String]?
+    /// How often each channel runs (ISO weekdays, null = daily); see `Cadence`.
+    let cadence: PlanCadence?
+    /// The days each AI assistant is asked on (ISO weekdays); missing = daily.
+    let engineDays: [String: [Int]]?
 
     /// Whether the plan includes a channel. Settings is always there.
     func includes(_ channel: Channel) -> Bool {
         guard channel != .settings, let channels else { return true }
         return channels.contains(channel.rawValue)
     }
+}
+
+struct PlanCadence: Decodable {
+    let asoEveryDays: Int?
+    let seoDays: [Int]?
+    let aioDays: [Int]?
+    let actionsDays: [Int]?
 }
 
 struct LoginResponse: Decodable {

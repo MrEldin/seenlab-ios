@@ -121,6 +121,13 @@ struct GrowthScreen: View {
     }
 
     private var boardName: String { store.sharedId.flatMap { id in store.shared.first { $0.appId == id }?.name } ?? projects.current?.name ?? "" }
+    /// The header has room for a word or two: "Habitloom: Habit Tracker" reads as "Habitloom".
+    private var boardShortName: String {
+        for sep in [": ", " – ", " — ", " - ", " | "] {
+            if let r = boardName.range(of: sep), boardName.distance(from: boardName.startIndex, to: r.lowerBound) >= 3 { return String(boardName[..<r.lowerBound]) }
+        }
+        return boardName
+    }
 
     // MARK: header
 
@@ -148,7 +155,7 @@ struct GrowthScreen: View {
                     RemoteIcon(url: projects.current?.iconUrl, size: 30, fallback: projects.current?.platformIcon ?? "app.fill")
                     VStack(alignment: .leading, spacing: 0) {
                         Text(t("growth.ws.hand")).font(.hand(15)).foregroundStyle(Color.slAccent600)
-                        Text(boardName).font(.dm(14, .bold)).foregroundStyle(Color.slInk).lineLimit(1)
+                        Text(boardShortName).font(.dm(14, .bold)).foregroundStyle(Color.slInk).lineLimit(1).layoutPriority(1)
                     }
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.slInkMuted)
                 }

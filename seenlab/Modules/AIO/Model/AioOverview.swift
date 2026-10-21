@@ -50,6 +50,8 @@ struct AioEngine: Decodable, Identifiable, Hashable {
     let web: Bool?
     let enabled: Bool?
     let keyName: String?
+    /// ISO weekdays this assistant is asked on; absent = the plan's days, empty = daily.
+    let days: [Int]?
 
     var id: String { key }
     var name: String { label ?? key }
