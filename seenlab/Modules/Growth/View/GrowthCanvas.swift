@@ -153,7 +153,8 @@ struct GrowthCanvas: View {
             .clipped()
             .contentShape(Rectangle())
             .gesture(panGesture.simultaneously(with: zoomGesture))
-            .onAppear { if !fitted { fit(geo.size, size); fitted = true }; placeNight() }
+            // `-fitAll YES` opens on the whole board (screenshots, checks); debug builds only
+            .onAppear { if !fitted { fit(geo.size, size, all: UserDefaults.standard.bool(forKey: "fitAll")); fitted = true }; placeNight() }
             .onChange(of: store.stickies.filter { $0.auto == true }.map(\.id)) { _, _ in placeNight() }
             .onChange(of: lens) { _, _ in fit(geo.size, size) }
             .overlay(alignment: .bottomTrailing) {
@@ -710,7 +711,8 @@ struct BoardLines: View {
                                 let text = Text(label).font(.dm(11, .bold)).foregroundStyle(.white)
                                 let resolved = ctx.resolve(text)
                                 let size = resolved.measure(in: CGSize(width: r.width - 24, height: 24))
-                                let box = CGRect(x: r.minX + 12, y: r.maxY - pad + 2, width: size.width + 16, height: 22)
+                                // on the right: the next card's week badge hangs over its top-left corner
+                                let box = CGRect(x: r.maxX - 12 - (size.width + 16), y: r.maxY - pad + 2, width: size.width + 16, height: 22)
                                 ctx.fill(Path(roundedRect: box, cornerRadius: 8), with: .color(color))
                                 ctx.draw(resolved, in: CGRect(x: box.minX + 8, y: box.minY + 4, width: size.width, height: 14))
                             }
