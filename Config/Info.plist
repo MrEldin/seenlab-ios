@@ -10,5 +10,16 @@
 	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- The languages the app speaks (Resources/Locales): the App Store lists them, and iOS offers the per-app language choice. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>sr</string>
+		<string>de</string>
+		<string>fr</string>
+		<string>es</string>
+	</array>
 </dict>
 </plist>
