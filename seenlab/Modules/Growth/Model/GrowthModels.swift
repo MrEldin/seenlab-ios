@@ -181,7 +181,9 @@ struct PlanNode: Decodable {
     var expect: String?
     var week: Num?
     var custom: Bool?
-    enum CodingKeys: String, CodingKey { case id, channel, kind, url, title, what, why, steps, copy, cost, expect, week, custom
+    /// The inbox finding a founder's own step came from (kept through "bring it up to date").
+    var from: String?
+    enum CodingKeys: String, CodingKey { case id, channel, kind, url, title, what, why, steps, copy, cost, expect, week, custom, from
         case channelName = "channel_name", effortHours = "effort_hours" }
 }
 
