@@ -221,6 +221,8 @@ struct Mark: Codable {
     var at: String?
     var startedAt: String?
     var auto: Bool?
+    /// Why Seenlab ticked it (not stored; filled from the plan's evidence).
+    var evidence: Evidence? = nil
     enum CodingKeys: String, CodingKey { case status, visitors, signups, spent, note, at, auto; case startedAt = "started_at" }
 }
 
@@ -374,5 +376,7 @@ struct BoardCard: Identifiable, Equatable {
     var source: String       // ai | added | custom
     var owner: Int?
     var test: TestSpec?
+    /// The inbox finding this step was taken from (Seenlab ticks it when a later check shows the finding fixed).
+    var from: String? = nil
     static func == (a: BoardCard, b: BoardCard) -> Bool { a.id == b.id && a.title == b.title && a.week == b.week && a.cost == b.cost && a.owner == b.owner && a.test == b.test }
 }

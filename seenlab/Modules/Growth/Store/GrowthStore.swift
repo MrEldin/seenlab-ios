@@ -56,7 +56,16 @@ final class GrowthStore: ObservableObject {
     /// Marks as shown: the founder's own, plus the steps Seenlab can see are done that nobody marked.
     var marks: [String: Mark] {
         var m = data?.state.steps ?? [:]
-        for c in cards { if let ch = c.channel, data?.evidence[ch] != nil, m[c.id]?.status == nil { m[c.id] = Mark(status: "done", auto: true) } }
+        // by the step's channel, or by the inbox finding it came from; a "done" or "skipped" by hand wins, a step under way ticks
+        for c in cards {
+            guard let ev = c.channel.flatMap({ data?.evidence[$0] }) ?? c.from.flatMap({ data?.evidence[$0] }) else { continue }
+            let cur = m[c.id]
+            if cur?.status == nil || cur?.status == "todo" || cur?.status == "doing" {
+                var mark = cur ?? Mark(status: "done", auto: true)
+                mark.status = "done"; mark.auto = true; mark.evidence = ev
+                m[c.id] = mark
+            }
+        }
         return m
     }
 

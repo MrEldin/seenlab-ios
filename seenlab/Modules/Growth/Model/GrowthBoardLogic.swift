@@ -82,7 +82,7 @@ struct BoardEngine {
             return BoardCard(id: id, channel: n.channel, channelName: n.channelName ?? d?.name ?? "", kind: n.kind ?? d?.kind ?? "custom", url: n.url ?? d?.url,
                              title: o?.title ?? n.title ?? "", what: (n.what?.isEmpty == false ? n.what : nil) ?? d.map(BoardEngine.describe) ?? "", why: n.why ?? "", steps: n.steps ?? [], copy: n.copy ?? [],
                              cost: n.cost ?? 0, effortHours: n.effortHours ?? 1, expect: n.expect ?? d?.expect ?? "", week: Int(o?.week ?? n.week ?? 0),
-                             source: n.custom == true ? "custom" : "ai", owner: o?.owner, test: o?.test)
+                             source: n.custom == true ? "custom" : "ai", owner: o?.owner, test: o?.test, from: o?.from)
         }
         guard let c = o else { return nil }
         let d = c.channel.flatMap { dir[$0] }
@@ -90,7 +90,7 @@ struct BoardEngine {
         return BoardCard(id: id, channel: c.channel, channelName: d?.name ?? "", kind: d?.kind ?? "custom", url: d?.url, title: c.title ?? d?.name ?? "",
                          what: c.what ?? d.map(BoardEngine.describe) ?? "", why: c.why ?? "", steps: (c.steps?.isEmpty == false ? c.steps : d?.how.map { [$0] }) ?? [], copy: c.copy ?? [],
                          cost: c.cost ?? d?.cost.first ?? 0, effortHours: c.effortHours ?? d?.effortHours ?? 1, expect: d?.expect ?? "", week: Int(c.week ?? 0),
-                         source: c.channel != nil ? "added" : "custom", owner: c.owner, test: c.test)
+                         source: c.channel != nil ? "added" : "custom", owner: c.owner, test: c.test, from: c.from)
     }
 
     /// The columns as drawn: cards and the proposals not taken or dismissed, mixed as the founder arranged them (weeks filled in).
